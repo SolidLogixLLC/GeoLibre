@@ -448,6 +448,41 @@ export interface GeoLibreAppAPI {
   closeFloatingPanel?: (id: string) => void;
   /** Ids of the currently open floating panels, in stacking order. */
   getOpenFloatingPanels?: () => string[];
+  /**
+   * Current list of layers, in panel order. Typed optional for
+   * forward-compatibility with host variants, so call it with optional
+   * chaining.
+   */
+  getLayers?: () => GeoLibreLayer[];
+  /**
+   * Subscribe to changes in the layers array (add/remove/reorder/visibility/
+   * opacity/group). Returns an unsubscribe function (call it from
+   * `deactivate`). Typed optional for forward-compatibility, so call it with
+   * optional chaining.
+   */
+  subscribeLayers?: (
+    listener: (
+      layers: GeoLibreLayer[],
+      previousLayers: GeoLibreLayer[],
+    ) => void,
+  ) => () => void;
+  /**
+   * Create a new layer group (a named, collapsible folder in the Layers
+   * panel) and return its id. Pass `layerIds` to move existing layers into
+   * the group at creation time. Typed optional for forward-compatibility
+   * with host variants, so call it with optional chaining.
+   */
+  addLayerGroup?: (name?: string, layerIds?: string[]) => string;
+  /**
+   * Move a layer into a group, or pass `groupId: null` to remove it from its
+   * current group. Typed optional for forward-compatibility, so call it with
+   * optional chaining.
+   */
+  moveLayerToGroup?: (
+    layerId: string,
+    groupId: string | null,
+    beforeLayerId?: string | null,
+  ) => void;
 }
 
 /**

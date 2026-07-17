@@ -124,6 +124,20 @@ export interface GeoLibreAppAPI {
   openFloatingPanel?: (id: string) => boolean;
   closeFloatingPanel?: (id: string) => void;
   getOpenFloatingPanels?: () => string[];
+  // Layer groups (folders in the Layers panel; see "Layer groups" below).
+  subscribeLayers?(
+    listener: (
+      layers: GeoLibreLayer[],
+      previousLayers: GeoLibreLayer[],
+    ) => void,
+  ): () => void;
+  addLayerGroup?(name?: string, layerIds?: string[]): string;
+  moveLayerToGroup?(
+    layerId: string,
+    groupId: string | null,
+    beforeLayerId?: string | null,
+  ): void;
+  getLayers?(): GeoLibreLayer[];
 }
 
 export interface GeoLibreToolbarMenu {
