@@ -719,6 +719,17 @@ function ensureExternalPluginsLoadedWithSettings(
             ", ",
           )}: ${result.loadedPluginIds.join(", ")}`,
         );
+        // activeByDefault marks a plugin active in register() but doesn't call
+        // activate() (no app API exists at registration time). Activate now,
+        // scoped to only the plugins this scan just loaded — never the full
+        // manager.list() — so a plugin already activated by a previous scan or
+        // by the user is never re-activated.
+        const idsToActivate = result.loadedPluginIds.filter(
+          (id) => manager.list().find((p) => p.id === id)?.activeByDefault,
+        );
+        if (idsToActivate.length) {
+          manager.activateDefaultPlugins(idsToActivate, app);
+        }
       }
       for (const issue of result.issues) {
         console.warn(`Skipped external plugin archive '${issue.archiveName}': ${issue.message}`);

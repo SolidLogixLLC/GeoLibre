@@ -631,6 +631,25 @@ export class PluginManager {
     if (changed) this.notify();
   }
 
+  /**
+   * Call `activate()` on a specific set of plugin ids that `register()` already
+   * marked active (via `activeByDefault`) but never actually activated —
+   * `register()` cannot call `activate()` itself since no `GeoLibreAppAPI`
+   * exists at registration time (see the comment there). Unlike
+   * `restoreProjectState`, this does NOT skip ids already in `this.active`,
+   * because `register()` optimistically adds `activeByDefault` plugins to
+   * `this.active` before they're really activated — so callers must pass only
+   * ids that were just registered in this call, never re-run this over the
+   * full plugin list, or an already-activated plugin gets activated twice.
+   */
+  activateDefaultPlugins(ids: string[], app: GeoLibreAppAPI): void {
+    for (const id of ids) {
+      const plugin = this.plugins.get(id);
+      if (!plugin) continue;
+      plugin.activate(scopeAppToPlugin(app, id));
+    }
+  }
+
   private notify(): void {
     this.version += 1;
     for (const listener of this.listeners) listener();
