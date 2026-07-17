@@ -376,6 +376,11 @@ async function fetchPluginText(url: string, label: string, signal?: AbortSignal)
   }
   return new TextDecoder().decode(merged);
 }
+// External plugins cannot self-declare activeByDefault (a third-party
+// plugin should never auto-activate without user consent). The host's own
+// bundled/trusted plugins are the only exception — allowlisted by id here
+// rather than lifting the check globally.
+const TRUSTED_AUTO_ACTIVATE_EXTERNAL_IDS = new Set(["geologix-plugin"]);
 
 async function importExternalPlugin(bundle: ExternalPluginBundle): Promise<GeoLibrePlugin> {
   const moduleUrl = URL.createObjectURL(
@@ -392,7 +397,7 @@ async function importExternalPlugin(bundle: ExternalPluginBundle): Promise<GeoLi
       throw new Error("Entry must export a GeoLibrePlugin as default or plugin.");
     }
     validateManifestMatchesPlugin(bundle.manifest, candidate);
-    if (candidate.activeByDefault) {
+    if (candidate.activeByDefault && !TRUSTED_AUTO_ACTIVATE_EXTERNAL_IDS.has(candidate.id)) {
       throw new Error("External plugins cannot use activeByDefault.");
     }
     return candidate;
