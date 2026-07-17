@@ -172,6 +172,7 @@ import {
 } from "../lib/tauri-io";
 import { useDesktopSettingsStore } from "./useDesktopSettings";
 import { ensureFileExtension, useFileNamePrompt } from "./useFileNamePrompt";
+import type { GeoLibreLayer } from "@geolibre/core";
 
 const RASTER_PROXY_PATH = "/__geolibre_raster_proxy";
 
@@ -1423,6 +1424,19 @@ export function createAppAPI(mapControllerRef?: RefObject<MapEngine | null>) {
     openFloatingPanel,
     closeFloatingPanel,
     getOpenFloatingPanels,
+    subscribeLayers: (
+      listener: (
+        layers: GeoLibreLayer[],
+        previousLayers: GeoLibreLayer[],
+      ) => void,
+    ) =>
+      useAppStore.subscribe((state, previous) => {
+        if (state.layers !== previous.layers) {
+          listener(state.layers, previous.layers);
+        }
+      }),
+    moveLayerToGroup: (layerId: string, groupId: string | null, beforeLayerId?: string | null) =>
+      store.moveLayerToGroup(layerId, groupId, beforeLayerId),
   };
   return api;
 }

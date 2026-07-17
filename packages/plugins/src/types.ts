@@ -938,6 +938,31 @@ export interface GeoLibreAppAPI {
   closeFloatingPanel?: (id: string) => void;
   /** Ids of the currently open floating panels, in stacking order. */
   getOpenFloatingPanels?: () => string[];
+  /**
+   * Subscribe to changes in the layers array (add/remove/reorder/visibility/
+   * opacity/group). Returns an unsubscribe function (call it from
+   * `deactivate`). Typed optional for forward-compatibility, so call it with
+   * optional chaining. Fork-only: upstream's own layer-change subscription,
+   * `onLayersChanged`, hands back layer ids only, not the layer objects a
+   * plugin needs to diff visibility/opacity/group changes.
+   */
+  subscribeLayers?: (
+    listener: (
+      layers: GeoLibreLayer[],
+      previousLayers: GeoLibreLayer[],
+    ) => void,
+  ) => () => void;
+  /**
+   * Move a layer into a group, or pass `groupId: null` to remove it from its
+   * current group. Typed optional for forward-compatibility, so call it with
+   * optional chaining. Fork-only: upstream only exposes the batch
+   * `moveLayersToGroup`, with no `beforeLayerId` ordering.
+   */
+  moveLayerToGroup?: (
+    layerId: string,
+    groupId: string | null,
+    beforeLayerId?: string | null,
+  ) => void;
 }
 
 /**
