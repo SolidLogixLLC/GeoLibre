@@ -4,6 +4,7 @@ import type {
   ExternalNativePaintMode,
   GeoLibreLayer,
   GeoLibreProject,
+  LayerGroup,
   LayerStyle,
   MapRendererKind,
 } from "@geolibre/core";
@@ -886,6 +887,12 @@ export interface GeoLibreAppAPI {
     groupId: string | null,
     beforeLayerId?: string | null,
   ) => void;
+  /**
+   * Current list of layer groups (folders in the Layers panel), in panel
+   * order. Typed optional for forward-compatibility with host variants, so
+   * call it with optional chaining.
+   */
+  getLayerGroups?: () => LayerGroup[];
 }
 
 /**

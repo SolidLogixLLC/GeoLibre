@@ -235,6 +235,7 @@ export interface GeoLibreAppAPI {
     beforeLayerId?: string | null,
   ): void;
   getLayers?(): GeoLibreLayer[];
+  getLayerGroups?(): LayerGroup[];
 }
 
 export interface GeoLibreToolbarMenu {

@@ -1333,11 +1333,12 @@ export function createAppAPI(mapControllerRef?: RefObject<MapEngine | null>) {
       ) => void,
     ) =>
       useAppStore.subscribe((state, previous) => {
-        if (state.layers !== previous.layers) {
+        if (state.layers !== previous.layers || state.layerGroups !== previous.layerGroups) {
           listener(state.layers, previous.layers);
         }
       }),
       getLayers: () => useAppStore.getState().layers,
+      getLayerGroups: () => useAppStore.getState().layerGroups,
       addLayerGroup: (name?: string, layerIds?: string[]) =>
         store.addLayerGroup(name, layerIds),
       moveLayerToGroup: (layerId: string, groupId: string | null, beforeLayerId?: string | null) =>
