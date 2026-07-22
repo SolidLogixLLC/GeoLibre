@@ -1,4 +1,4 @@
-import type { GeoLibreLayer, LayerStyle } from "@geolibre/core";
+import type { GeoLibreLayer, LayerGroup, LayerStyle } from "@geolibre/core";
 import type { FeatureCollection } from "geojson";
 import type { IControl, Map as MapLibreMap } from "maplibre-gl";
 
@@ -483,6 +483,12 @@ export interface GeoLibreAppAPI {
     groupId: string | null,
     beforeLayerId?: string | null,
   ) => void;
+  /**
+   * Current list of layer groups (folders in the Layers panel), in panel
+   * order. Typed optional for forward-compatibility with host variants, so
+   * call it with optional chaining.
+   */
+  getLayerGroups?: () => LayerGroup[];
 }
 
 /**
