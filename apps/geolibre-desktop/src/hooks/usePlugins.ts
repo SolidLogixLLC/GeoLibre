@@ -1442,7 +1442,7 @@ export function createAppAPI(mapControllerRef?: RefObject<MapEngine | null>) {
       ) => void,
     ) =>
       useAppStore.subscribe((state, previous) => {
-        if (state.layers !== previous.layers) {
+        if (state.layers !== previous.layers || state.layerGroups !== previous.layerGroups) {
           listener(state.layers, previous.layers);
         }
       }),
