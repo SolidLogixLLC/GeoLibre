@@ -1792,6 +1792,8 @@ export interface LegendConfig {
 export const DEFAULT_LEGEND_CONFIG: LegendConfig = Object.freeze({
   title: "Legend",
   groupByLayer: true,
+  panelVisible: true,
+  panelPosition: "top-right",
   order: Object.freeze([] as string[]) as string[],
   overrides: Object.freeze({} as Record<string, LegendItemOverride>) as Record<
     string,
