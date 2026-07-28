@@ -5,7 +5,7 @@ import {
 } from "@geolibre/core";
 import { useEffect } from "react";
 import { create } from "zustand";
-import { normalizeStringList } from "../lib/string-lists";
+import { mergeStringLists, normalizeStringList } from "../lib/string-lists";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../lib/storage-keys";
 import {
   DEFAULT_CUSTOM_COLOR,
@@ -222,11 +222,32 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   customColor: DEFAULT_CUSTOM_COLOR,
 };
 
+function getDefaultPluginManifestUrls(): string[] {
+  const envValues = [
+    import.meta.env?.VITE_PLUGIN_MANIFEST_URLS,
+    import.meta.env?.VITE_PLUGIN_MANIFEST_URL,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .flatMap((value) => value.split(","));
+
+  const configuredValues = envValues
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return normalizeStringList(
+    configuredValues.length > 0
+      ? configuredValues
+      : ["http://localhost:3000/plugin.json"],
+  ).filter(isAllowedPluginManifestUrl);
+}
+
+const DEFAULT_PLUGIN_MANIFEST_URLS = getDefaultPluginManifestUrls();
+
 const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   additionalPluginDirectories: [],
   language: "",
   layout: DEFAULT_DESKTOP_LAYOUT_SETTINGS,
-  pluginManifestUrls: [],
+  pluginManifestUrls: DEFAULT_PLUGIN_MANIFEST_URLS,
   shareToken: "",
   cesiumIonToken: "",
   aiProfiles: [],
@@ -255,9 +276,14 @@ export function normalizeDesktopSettings(settings: unknown): DesktopSettings {
     language: typeof candidate.language === "string" ? candidate.language.trim() : "",
     layout: normalizeDesktopLayoutSettings(candidate.layout),
     // Apply the same scheme rule as project-file loading so stale or edited
-    // localStorage values cannot smuggle in disallowed URL schemes.
-    pluginManifestUrls: normalizeStringList(candidate.pluginManifestUrls).filter(
-      isAllowedPluginManifestUrl,
+    // localStorage values cannot smuggle in disallowed URL schemes. Merge in the
+    // environment/default manifest URLs so first-run and older browser settings
+    // still auto-load the local plugin.
+    pluginManifestUrls: mergeStringLists(
+      DEFAULT_PLUGIN_MANIFEST_URLS,
+      normalizeStringList(candidate.pluginManifestUrls).filter(
+        isAllowedPluginManifestUrl,
+      ),
     ),
     shareToken: typeof candidate.shareToken === "string" ? candidate.shareToken.trim() : "",
     cesiumIonToken:
