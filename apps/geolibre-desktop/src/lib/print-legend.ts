@@ -91,13 +91,45 @@ export function legendSwatchesForLayer(layer: GeoLibreLayer): LegendSwatch[] {
       if (swatches.length > 0) return [...swatches, ...diagrams];
     }
     const primary = pointMarkerSwatch(layer.style) ?? {
-      color: styleValue(layer.style, "fillColor"),
+      color: singleVectorSwatchColor(layer),
     };
     return [primary, ...diagrams];
   }
 
   // Raster / service layers: a single neutral marker swatch.
   return [{ color: NEUTRAL_SWATCH }];
+}
+
+function sampledGeometryType(layer: GeoLibreLayer): "point" | "line" | "polygon" | null {
+  const hint = typeof layer.metadata?.geometryType === "string" ? layer.metadata.geometryType : "";
+  if (hint === "point" || hint === "line" || hint === "polygon") return hint;
+  const features = layer.geojson?.features;
+  if (!features || features.length === 0) return null;
+  let hasPolygon = false;
+  let hasLine = false;
+  let hasPoint = false;
+  for (const feature of features.slice(0, 500)) {
+    const type = feature.geometry?.type ?? "";
+    if (type.includes("Polygon")) hasPolygon = true;
+    else if (type.includes("LineString")) hasLine = true;
+    else if (type.includes("Point")) hasPoint = true;
+  }
+  if (hasPolygon) return "polygon";
+  if (hasLine) return "line";
+  if (hasPoint) return "point";
+  return null;
+}
+
+/**
+ * Primary color for a single-symbol vector swatch, aligned with geometry:
+ * lines prefer stroke color, polygons/points prefer fill color.
+ */
+export function singleVectorSwatchColor(layer: GeoLibreLayer): string {
+  const geometry = sampledGeometryType(layer);
+  if (geometry === "line") {
+    return styleValue(layer.style, "strokeColor") || styleValue(layer.style, "fillColor") || NEUTRAL_SWATCH;
+  }
+  return styleValue(layer.style, "fillColor") || styleValue(layer.style, "strokeColor") || NEUTRAL_SWATCH;
 }
 
 /**

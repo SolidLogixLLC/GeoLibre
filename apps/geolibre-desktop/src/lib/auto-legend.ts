@@ -514,6 +514,14 @@ function sizeRampColor(classRows: RawRow[], style: LayerStyle): string {
   return styleValue(style, "fillColor") || NEUTRAL;
 }
 
+/** Single-symbol swatch color aligned with the geometry that is actually drawn. */
+function singleVectorLegendColor(shape: LayerSwatchShape, style: LayerStyle): string {
+  if (shape === "line") {
+    return styleValue(style, "strokeColor") || styleValue(style, "fillColor") || NEUTRAL;
+  }
+  return styleValue(style, "fillColor") || styleValue(style, "strokeColor") || NEUTRAL;
+}
+
 /** Grayscale fallback when a named colormap has not been sampled yet. */
 const GRAYSCALE: readonly string[] = ["#1f2937", "#9ca3af", "#f9fafb"];
 
@@ -751,12 +759,12 @@ function vectorParts(
   // Single symbology: the size ramp IS the classification, so it carries the
   // field caption and replaces the single-swatch heading chip.
   const sizeRows = sizeRange
-    ? proportionalSizeRows(sizeRange, styleValue(style, "fillColor") || NEUTRAL, shape, locale)
+    ? proportionalSizeRows(sizeRange, singleVectorLegendColor(shape, style), shape, locale)
     : [];
   const marker = pointMarkerSwatch(style);
   const headerSwatch = marker
     ? { color: marker.color, marker: marker.marker }
-    : { color: styleValue(style, "fillColor") || NEUTRAL };
+    : { color: singleVectorLegendColor(shape, style) };
   const fieldLabel = sizeRange ? sizeRange.property : undefined;
   return { rows: [...sizeRows, ...diagrams], gradient: null, headerSwatch, fieldLabel };
 }
