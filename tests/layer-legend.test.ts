@@ -36,6 +36,21 @@ describe("legendSwatchesForLayer", () => {
   it("returns no swatches for a non-legend type (3d-tiles)", () => {
     assert.deepEqual(legendSwatchesForLayer(layer({ type: "3d-tiles" })), []);
   });
+
+  it("uses stroke color for line layers in single symbology", () => {
+    const s = legendSwatchesForLayer(
+      layer({
+        metadata: { geometryType: "line" },
+        style: {
+          ...DEFAULT_LAYER_STYLE,
+          fillColor: "#ff0000",
+          strokeColor: "#00ff00",
+        },
+      }),
+    );
+    assert.equal(s.length, 1);
+    assert.equal(s[0].color, "#00ff00");
+  });
 });
 
 describe("layerSwatchShape", () => {
