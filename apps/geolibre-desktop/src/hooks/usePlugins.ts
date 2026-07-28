@@ -1071,8 +1071,6 @@ export function createAppAPI(mapControllerRef?: RefObject<MapController | null>)
       }),
       getLayers: () => useAppStore.getState().layers,
       getLayerGroups: () => useAppStore.getState().layerGroups,
-      addLayerGroup: (name?: string, layerIds?: string[]) =>
-        store.addLayerGroup(name, layerIds),
       moveLayerToGroup: (layerId: string, groupId: string | null, beforeLayerId?: string | null) =>
         store.moveLayerToGroup(layerId, groupId, beforeLayerId),
     };
