@@ -852,6 +852,14 @@ export interface GeoLibreAppAPI {
   closeFloatingPanel?: (id: string) => void;
   /** Ids of the currently open floating panels, in stacking order. */
   getOpenFloatingPanels?: () => string[];
+  /** Set a layer's visibility. Typed optional for forward-compatibility. */
+  setLayerVisibility?: (layerId: string, visible: boolean) => void;
+  /**
+   * Merge a partial style patch into an existing layer style. Typed optional
+   * for forward-compatibility with host variants, so call it with optional
+   * chaining.
+   */
+  setLayerStyle?: (layerId: string, style: Partial<LayerStyle>) => void;
   /**
    * Current list of layers, in panel order. Typed optional for
    * forward-compatibility with host variants, so call it with optional
