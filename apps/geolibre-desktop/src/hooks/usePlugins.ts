@@ -118,7 +118,7 @@ import {
 } from "../lib/tauri-io";
 import { useDesktopSettingsStore } from "./useDesktopSettings";
 import { ensureFileExtension, useFileNamePrompt } from "./useFileNamePrompt";
-import type { GeoLibreLayer } from "@geolibre/core";
+import type { GeoLibreLayer, LayerStyle } from "@geolibre/core";
 
 const RASTER_PROXY_PATH = "/__geolibre_raster_proxy";
 
@@ -1058,6 +1058,10 @@ export function createAppAPI(mapControllerRef?: RefObject<MapController | null>)
     openFloatingPanel,
     closeFloatingPanel,
     getOpenFloatingPanels,
+    setLayerVisibility: (layerId: string, visible: boolean) =>
+      store.setLayerVisibility(layerId, visible),
+    setLayerStyle: (layerId: string, style: Partial<LayerStyle>) =>
+      store.setLayerStyle(layerId, style),
     subscribeLayers: (
       listener: (
         layers: GeoLibreLayer[],
