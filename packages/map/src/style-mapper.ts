@@ -5,6 +5,7 @@ import {
   extrusionHeightValue,
   lineWidthValue,
   mapZoomStepOutputs,
+  parseJsonExpression,
   simpleStyleNumberValue,
   vectorCircleColorValue,
   vectorFillColorValue,
@@ -72,9 +73,15 @@ export function fillExtrusionPaint(style: LayerStyle, opacity: number) {
 }
 
 export function linePaint(style: LayerStyle, opacity: number) {
+  const widthExpression = parseJsonExpression(styleValue(style, "strokeWidthExpression"));
+  const dasharray = styleValue(style, "strokeDasharray");
   return {
     "line-color": vectorLineColorValue(style) as PropertyValueSpecification<string>,
-    "line-width": lineWidthValue(style) as unknown as PropertyValueSpecification<number>,
+    "line-width": (widthExpression ?? lineWidthValue(style)) as unknown as PropertyValueSpecification<number>,
+    // `null` resets a dash that was previously applied; ensureLayer strips it
+    // when first adding a solid layer and passes it through on later updates.
+    "line-dasharray": (dasharray.length > 0 ? dasharray : null) as
+      PropertyValueSpecification<number[]>,
     "line-opacity": scaleByOpacity(simpleStyleNumberValue(style, "stroke-opacity", 1), opacity),
   };
 }

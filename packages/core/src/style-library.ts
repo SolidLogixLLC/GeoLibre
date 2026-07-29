@@ -47,6 +47,8 @@ export const SYMBOL_STYLE_KEYS = [
   "fillColor",
   "strokeColor",
   "strokeWidth",
+  "strokeWidthExpression",
+  "strokeDasharray",
   "strokeWidthUnit",
   "fillOpacity",
   "circleRadius",

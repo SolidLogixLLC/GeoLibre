@@ -61,6 +61,7 @@ export interface GeoLibreAppAPI {
     name: string,
     data: FeatureCollection,
     sourcePath?: string,
+    options?: { attribution?: string },
   ) => string;
   // Native raster/tile layers (see "Raster and tile layers" below). Each
   // returns the new layer's id and the layer appears in the Layers panel and
@@ -106,6 +107,9 @@ export interface GeoLibreAppAPI {
   fetchArrayBuffer?: (url: string) => Promise<ArrayBuffer>;
   fitBounds?: (bounds: [number, number, number, number]) => void;
   getMap?: () => import("maplibre-gl").Map | null;
+  registerFeatureInteraction?: (
+    options: GeoLibreFeatureInteractionOptions,
+  ) => () => void;
   addMapControl: (
     control: IControl,
     position?: GeoLibreMapControlPosition,
@@ -426,7 +430,13 @@ A URL parameter activates only an already-registered (installed) plugin that own
 
 ## Raster and tile layers
 
-`addGeoJsonLayer` registers vector data as a native layer. For raster and tile data there are three matching helpers — `addTileLayer` (XYZ), `addWmtsLayer` (WMTS), and `addWmsLayer` (WMS). Each returns the new layer's id, and the layer appears in the Layers panel with full opacity, reorder, and styling support and persists with the project, so a plugin no longer has to call `getMap().addSource()/addLayer()` directly (which leaves the layer invisible to GeoLibre's layer store).
+`addGeoJsonLayer` registers vector data as a native layer. For raster and tile
+data there are three matching helpers — `addTileLayer` (XYZ), `addWmtsLayer`
+(WMTS), and `addWmsLayer` (WMS). Each returns the new layer's id, and the layer
+appears in the Layers panel with full opacity, reorder, styling, labels,
+interaction, and project-persistence support, so a plugin no longer has to call
+`getMap().addSource()/addLayer()` directly (which leaves the layer invisible to
+GeoLibre's layer store).
 
 ```typescript
 export interface GeoLibreTileLayerOptions {
@@ -490,6 +500,20 @@ const cogId = await app.addCogLayer?.(
 `addTileLayer`/`addWmtsLayer`/`addWmsLayer` expect **pre-rendered tiles** (e.g. a COG already served through a tiler such as titiler as an XYZ endpoint). `addCogLayer` is different: it loads the **GeoTIFF itself** and renders it client-side, exposing band selection, rescale, colormap, and nodata in the raster panel. It is async (it fetches the file's header), so it returns a `Promise<string>` and rejects if the COG cannot be read.
 
 The helpers are typed optional for forward-compatibility with host variants, so call them with optional chaining (`app.addTileLayer?.(...)`).
+
+`registerFeatureInteraction` adds host-managed pointer feedback and a
+plain-text tooltip to a registered layer. Cleanup is explicit and should be
+called from the plugin's `deactivate` hook.
+
+```typescript
+const cleanup = app.registerFeatureInteraction?.({
+  layerId: geoJsonLayerId,
+  titleField: "name",
+  fields: [{ field: "slip_rate", label: "Slip rate" }],
+  cursor: "pointer",
+  hoverStrokeWidthDelta: 2,
+});
+```
 
 > **Desktop (Tauri) note:** The desktop app enforces a Content Security Policy that restricts which tile hosts the WebView can reach. If your plugin registers tiles from a host not already in the GeoLibre CSP allowlist, the layer is created but its tiles silently fail to load. For bundled (first-party) plugins, add the host to `connect-src` / `img-src` in `apps/geolibre-desktop/src-tauri/tauri.conf.json`; external plugins can only reach already-permitted hosts. The web build is unaffected.
 

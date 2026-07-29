@@ -527,6 +527,7 @@ export interface AppState {
     geojson: FeatureCollection,
     sourcePath?: string,
     beforeLayerId?: string | null,
+    attribution?: string,
   ) => string;
   /**
    * Add a georeferenced image overlay (a MapLibre `image` source rendered as a
@@ -563,7 +564,6 @@ export interface AppState {
     options: AddTileLayerOptions,
     beforeLayerId?: string | null,
   ) => string;
-
   addLayerGroup: (name?: string, layerIds?: string[]) => string;
   removeLayerGroup: (id: string, options?: { removeChildren?: boolean }) => void;
   renameLayerGroup: (id: string, name: string) => void;
@@ -1461,13 +1461,31 @@ export const useAppStore = create<AppState>()(
           return { layers: next, isDirty: true };
         }),
 
-      addGeoJsonLayer: (name, geojson, sourcePath, beforeLayerId = null) => {
+      addGeoJsonLayer: (
+        name,
+        geojson,
+        sourcePath,
+        beforeLayerId = null,
+        attribution,
+      ) => {
         const id = uuidv4();
+        const foreignAttribution = (
+          geojson as FeatureCollection & { attribution?: unknown }
+        ).attribution;
+        const sourceAttribution =
+          typeof attribution === "string" && attribution.trim()
+            ? attribution
+            : foreignAttribution;
         const layer: GeoLibreLayer = {
           id,
           name,
           type: "geojson",
-          source: { type: "geojson" },
+          source: {
+            type: "geojson",
+            ...(typeof sourceAttribution === "string" && sourceAttribution.trim()
+              ? { attribution: sourceAttribution }
+              : {}),
+          },
           visible: true,
           opacity: 1,
           style: {

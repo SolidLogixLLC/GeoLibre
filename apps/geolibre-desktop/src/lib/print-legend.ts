@@ -433,13 +433,19 @@ export function diagramSwatches(
  */
 function ruleSwatches(layer: GeoLibreLayer): { color: string; label: string }[] {
   const { rules, elseRule } = effectiveVectorRules(layer.style);
-  const limited = rules.length > MAX_RAMP_SWATCHES ? sampleEvenly(rules, MAX_RAMP_SWATCHES) : rules;
-  const swatches = limited.map((rule) => ({
-    color: rule.color,
-    label: rule.label || JSON.stringify(rule.filter),
-  }));
-  if (elseRule && isHexColor(elseRule.color)) {
-    swatches.push({ color: elseRule.color, label: elseRule.label || "Other" });
+  const unique = new Map<string, { color: string; label: string }>();
+  for (const rule of rules) {
+    const label = rule.label || JSON.stringify(rule.filter);
+    unique.set(`${label}\u0000${rule.color}`, { color: rule.color, label });
+  }
+  const values = [...unique.values()];
+  const swatches =
+    values.length > MAX_RAMP_SWATCHES ? sampleEvenly(values, MAX_RAMP_SWATCHES) : values;
+  if (elseRule && isHexColor(elseRule.color) && swatches.length < MAX_RAMP_SWATCHES) {
+    const label = elseRule.label || "Other";
+    if (!unique.has(`${label}\u0000${elseRule.color}`)) {
+      swatches.push({ color: elseRule.color, label });
+    }
   }
   return swatches;
 }
