@@ -5,7 +5,7 @@ import {
 } from "@geolibre/core";
 import { useEffect } from "react";
 import { create } from "zustand";
-import { mergeStringLists, normalizeStringList } from "../lib/string-lists";
+import { normalizeStringList } from "../lib/string-lists";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../lib/storage-keys";
 import {
   DEFAULT_CUSTOM_COLOR,
@@ -282,15 +282,16 @@ export function normalizeDesktopSettings(settings: unknown): DesktopSettings {
     language: typeof candidate.language === "string" ? candidate.language.trim() : "",
     layout: normalizeDesktopLayoutSettings(candidate.layout),
     // Apply the same scheme rule as project-file loading so stale or edited
-    // localStorage values cannot smuggle in disallowed URL schemes. Merge in the
-    // environment/default manifest URLs so first-run and older browser settings
-    // still auto-load the local plugin.
-    pluginManifestUrls: mergeStringLists(
-      DEFAULT_PLUGIN_MANIFEST_URLS,
-      normalizeStringList(candidate.pluginManifestUrls).filter(
-        isAllowedPluginManifestUrl,
-      ),
-    ),
+    // localStorage values cannot smuggle in disallowed URL schemes. Use the
+    // environment/default manifests only when this setting is absent (first run
+    // or legacy data); an explicitly persisted empty list must remain empty so
+    // users can remove a default development plugin from Settings.
+    pluginManifestUrls:
+      candidate.pluginManifestUrls === undefined
+        ? DEFAULT_PLUGIN_MANIFEST_URLS
+        : normalizeStringList(candidate.pluginManifestUrls).filter(
+            isAllowedPluginManifestUrl,
+          ),
     shareToken: typeof candidate.shareToken === "string" ? candidate.shareToken.trim() : "",
     mapboxAccessToken:
       typeof candidate.mapboxAccessToken === "string" ? candidate.mapboxAccessToken.trim() : "",
