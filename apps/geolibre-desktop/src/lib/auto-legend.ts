@@ -211,13 +211,22 @@ function stopRows(
 /** Rule-based renderer rows (mirrors the live map's effective rules). */
 function ruleRows(layer: GeoLibreLayer, shape: LayerSwatchShape): RawRow[] {
   const { rules, elseRule } = effectiveVectorRules(layer.style);
-  const rows: RawRow[] = rules.slice(0, MAX_LEGEND_ROWS).map((rule) => ({
-    label: rule.label || JSON.stringify(rule.filter),
-    color: rule.color,
-    shape,
-  }));
-  if (elseRule && isHexColor(elseRule.color)) {
-    rows.push({ label: elseRule.label || "Other", color: elseRule.color, shape });
+  const rows: RawRow[] = [];
+  const seen = new Set<string>();
+  for (const rule of rules) {
+    const label = rule.label || JSON.stringify(rule.filter);
+    const key = `${label}\u0000${rule.color}`;
+    // The same category may be represented by separate non-overlapping
+    // zoom-range rules. It is one cartographic class, so show it once.
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({ label, color: rule.color, shape });
+    if (rows.length >= MAX_LEGEND_ROWS) break;
+  }
+  if (elseRule && isHexColor(elseRule.color) && rows.length < MAX_LEGEND_ROWS) {
+    const label = elseRule.label || "Other";
+    const key = `${label}\u0000${elseRule.color}`;
+    if (!seen.has(key)) rows.push({ label, color: elseRule.color, shape });
   }
   return rows;
 }

@@ -100,6 +100,7 @@ export function ManagePluginsDialog({
   const [reloadToken, setReloadToken] = useState(0);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyManifestUrl, setBusyManifestUrl] = useState<string | null>(null);
   const [actionError, setActionError] = useState<{
     id: string;
     message: string;
@@ -260,6 +261,23 @@ export function ManagePluginsDialog({
         });
       } finally {
         setBusyId(null);
+      }
+    },
+    [mapControllerRef],
+  );
+
+  const reloadManifestUrl = useCallback(
+    async (manifestUrl: string) => {
+      setSettingsError(null);
+      setBusyManifestUrl(manifestUrl);
+      try {
+        await upgradeExternalPlugin(manifestUrl, mapControllerRef);
+      } catch (error: unknown) {
+        setSettingsError(
+          error instanceof Error ? error.message : t("managePlugins.errorUpdate"),
+        );
+      } finally {
+        setBusyManifestUrl(null);
       }
     },
     [mapControllerRef],
@@ -478,6 +496,7 @@ export function ManagePluginsDialog({
                 newDirectory={newDirectory}
                 newManifestUrl={newManifestUrl}
                 error={settingsError}
+                busyManifestUrl={busyManifestUrl}
                 installing={installing}
                 installError={installError}
                 installNotice={installNotice}
@@ -493,6 +512,7 @@ export function ManagePluginsDialog({
                 onBrowseDirectory={() => void browseDirectory()}
                 onRemoveDirectory={removeDirectory}
                 onAddManifestUrl={addManifestUrl}
+                onReloadManifestUrl={(url) => void reloadManifestUrl(url)}
                 onRemoveManifestUrl={uninstallUrl}
               />
             ) : (
@@ -742,6 +762,7 @@ interface SettingsTabProps {
   newDirectory: string;
   newManifestUrl: string;
   error: string | null;
+  busyManifestUrl: string | null;
   installing: boolean;
   installError: string | null;
   installNotice: string | null;
@@ -754,6 +775,7 @@ interface SettingsTabProps {
   onBrowseDirectory: () => void;
   onRemoveDirectory: (path: string) => void;
   onAddManifestUrl: () => void;
+  onReloadManifestUrl: (url: string) => void;
   onRemoveManifestUrl: (url: string) => void;
 }
 
@@ -763,6 +785,7 @@ function SettingsTab({
   newDirectory,
   newManifestUrl,
   error,
+  busyManifestUrl,
   installing,
   installError,
   installNotice,
@@ -775,6 +798,7 @@ function SettingsTab({
   onBrowseDirectory,
   onRemoveDirectory,
   onAddManifestUrl,
+  onReloadManifestUrl,
   onRemoveManifestUrl,
 }: SettingsTabProps) {
   const { t } = useTranslation();
@@ -940,6 +964,22 @@ function SettingsTab({
             {manifestUrls.map((url) => (
               <div key={url} className="flex items-center gap-2 rounded-md border p-2">
                 <span className="min-w-0 flex-1 truncate text-xs">{url}</span>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 shrink-0"
+                  disabled={busyManifestUrl === url}
+                  title={t("managePlugins.refresh")}
+                  aria-label={t("managePlugins.updateAria", { name: url })}
+                  onClick={() => onReloadManifestUrl(url)}
+                >
+                  {busyManifestUrl === url ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                </Button>
                 <Button
                   type="button"
                   size="icon"

@@ -744,16 +744,19 @@ function ensurePMTilesExternalLayer(
 
   if (!map.getSource(sourceId)) {
     const tileUrl = normalizePMTilesUrl(rawUrl);
+    const attribution = stringSource(layer.source.attribution);
     if (getPMTilesTileType(layer) === "raster") {
       map.addSource(sourceId, {
         type: "raster",
         url: tileUrl,
         tileSize: 256,
+        ...(attribution ? { attribution } : {}),
       });
     } else {
       map.addSource(sourceId, {
         type: "vector",
         url: tileUrl,
+        ...(attribution ? { attribution } : {}),
       });
     }
   }
@@ -797,7 +800,6 @@ function ensurePMTilesExternalLayer(
       nativeLayerIds,
       pmtilesVectorLayerId(sourceId, sourceLayer, "circle"),
     );
-
     ensureLayer(
       map,
       fillId,
@@ -849,7 +851,109 @@ function ensurePMTilesExternalLayer(
       },
       beforeId,
     );
+
+    ensurePMTilesLabelLayer(map, layer, sourceId, sourceLayer, beforeId);
   }
+}
+
+function pmtilesLabelLayerId(sourceId: string, sourceLayer: string): string {
+  return `${sourceId}-${encodeVectorTileLayerPart(sourceLayer)}-label`;
+}
+
+function ensurePMTilesLabelLayer(
+  map: maplibregl.Map,
+  layer: GeoLibreLayer,
+  sourceId: string,
+  sourceLayer: string,
+  beforeId?: string,
+): void {
+  const id = pmtilesLabelLayerId(sourceId, sourceLayer);
+  const labels = {
+    ...DEFAULT_LAYER_STYLE.labels,
+    ...styleValue(layer.style, "labels"),
+  };
+  if (!labels.enabled || (!labels.field && !labels.expression.trim())) {
+    removeIfExists(map, id);
+    return;
+  }
+  const fieldTextField = (labels.field
+    ? ["to-string", ["coalesce", ["get", labels.field], ""]]
+    : "") as unknown as maplibregl.ExpressionSpecification | string;
+  let textField: maplibregl.ExpressionSpecification | string = fieldTextField;
+  if (labels.expression.trim()) {
+    try {
+      const parsed = JSON.parse(labels.expression);
+      if (!Array.isArray(parsed)) throw new Error("not an expression");
+      textField = parsed as maplibregl.ExpressionSpecification;
+    } catch {
+      textField = fieldTextField;
+    }
+  }
+  if (textField === "") {
+    removeIfExists(map, id);
+    return;
+  }
+  const sizeOverride = parseLabelOverride(labels.sizeExpression, "number");
+  const colorOverride = parseLabelOverride(labels.colorExpression, "color");
+  const opacityOverride = parseLabelOverride(labels.opacityExpression, "number");
+  const priorityOverride = parseLabelOverride(labels.priorityExpression, "number");
+  const visibilityOverride = parseLabelOverride(
+    labels.visibilityExpression,
+    "boolean",
+  );
+  const nonMarkerFilter = [
+    "!",
+    textMarkerShapeFilter,
+  ] as unknown as maplibregl.FilterSpecification;
+  const filter = visibilityOverride
+    ? ([
+        "all",
+        nonMarkerFilter,
+        visibilityOverride,
+      ] as unknown as maplibregl.FilterSpecification)
+    : nonMarkerFilter;
+  const labelZoom = intersectZoomRange(
+    {
+      minzoom: clampLayerZoom(labels.minZoom, MIN_LAYER_ZOOM),
+      maxzoom: clampLayerZoom(labels.maxZoom, MAX_LAYER_ZOOM),
+    },
+    layer.style,
+  );
+  ensureLayer(
+    map,
+    id,
+    {
+      id,
+      type: "symbol",
+      source: sourceId,
+      "source-layer": sourceLayer,
+      ...labelZoom,
+      filter: withFeatureFilters(layer, filter),
+      layout: {
+        "text-field": textField,
+        "text-font": textFontForMapStyle(map),
+        "text-size": sizeOverride ?? Math.max(1, labels.size),
+        "symbol-placement": labels.placement === "line" ? "line" : "point",
+        "text-allow-overlap": labels.allowOverlap,
+        "text-ignore-placement": labels.allowOverlap,
+        "text-anchor": labels.anchor,
+        "text-offset": [labels.offsetX, labels.offsetY],
+        "text-rotate": labels.rotation,
+        "text-max-width": Math.max(1, labels.maxWidth),
+        "text-transform": labels.transform,
+        "symbol-sort-key":
+          priorityOverride as unknown as PropertyValueSpecification<number>,
+        visibility: layer.visible ? "visible" : "none",
+      },
+      paint: {
+        "text-color": colorOverride ?? labels.color,
+        "text-halo-color": labels.haloColor,
+        "text-halo-width": Math.max(0, labels.haloWidth),
+        "text-opacity": opacityOverride ?? layer.opacity,
+      },
+    },
+    beforeId,
+  );
 }
 
 function ensurePMTilesProtocol(url: string): void {
@@ -1818,11 +1922,13 @@ function syncGeoJsonVtLayer(map: maplibregl.Map, layer: GeoLibreLayer, beforeId?
   }
 
   if (!map.getSource(src)) {
+    const attribution = stringSource(layer.source.attribution);
     map.addSource(src, {
       type: "vector",
       tiles: [geojsonVtTileUrl(layer.id)],
       minzoom: 0,
       maxzoom: TILE_MAX_ZOOM,
+      ...(attribution ? { attribution } : {}),
     });
   }
 
@@ -3504,6 +3610,7 @@ export function removeLayerFromMap(
 ): void {
   for (const id of [
     ...getExternalNativeLayerIds(layer),
+    ...(layer?.type === "pmtiles" ? pmtilesLabelLayerIds(layer) : []),
     ...getExternalNativeLayerIds(layer).map(externalExtrusionLayerId),
     ...(layer ? mbtilesAllStyleLayerIds(layer) : []),
     fillLayerId(layerId),
@@ -3557,6 +3664,14 @@ export function removeLayerFromMap(
     const url = stringSource(layer.source.url) ?? layer.sourcePath;
     if (typeof url === "string") unregisterPMTilesArchive(url);
   }
+}
+
+function pmtilesLabelLayerIds(layer: GeoLibreLayer): string[] {
+  const sourceId = getPMTilesSourceId(layer);
+  if (!sourceId) return [];
+  return getPMTilesSourceLayers(layer).map((sourceLayer) =>
+    pmtilesLabelLayerId(sourceId, sourceLayer),
+  );
 }
 
 function getExternalNativeLayerIds(layer?: GeoLibreLayer): string[] {

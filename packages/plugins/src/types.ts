@@ -98,6 +98,50 @@ export interface GeoLibreTileLayerOptions {
   beforeLayerId?: string;
 }
 
+/** Optional source metadata for a GeoJSON layer added by a plugin. */
+export interface GeoLibreGeoJsonLayerOptions {
+  /** Attribution shown in MapLibre's native attribution control. */
+  attribution?: string;
+}
+
+/** Options for {@link GeoLibreAppAPI.addPmtilesLayer}. */
+export interface GeoLibrePmtilesLayerOptions {
+  /** Vector source-layer name inside the archive. */
+  sourceLayer: string;
+  /** Attribution shown in MapLibre's native attribution control. */
+  attribution?: string;
+  /** Initial visibility (default true). */
+  visible?: boolean;
+  /** Initial opacity in [0, 1] (default 1). */
+  opacity?: number;
+  /** Minimum display zoom (default 0). */
+  minzoom?: number;
+  /** Maximum display zoom (default 24). */
+  maxzoom?: number;
+  /** Insert directly beneath this store layer. */
+  beforeLayerId?: string;
+}
+
+/** One property displayed by a plugin-registered hover tooltip. */
+export interface GeoLibreFeatureTooltipField {
+  field: string;
+  label: string;
+}
+
+/**
+ * Host-managed pointer/hover behavior for a persistent vector layer.
+ * Interaction is deliberately optional and read-only; registering it returns
+ * a cleanup function that plugins call from `deactivate`.
+ */
+export interface GeoLibreFeatureInteractionOptions {
+  layerId: string;
+  titleField?: string;
+  fields: GeoLibreFeatureTooltipField[];
+  cursor?: "pointer";
+  hoverStrokeWidthDelta?: number;
+  hoverFillOpacity?: number;
+}
+
 /**
  * Options for {@link GeoLibreAppAPI.addWmsLayer}. The GetMap tile URL is built
  * from the service `url` plus `layers`, so the plugin passes the WMS request
@@ -307,7 +351,21 @@ export interface GeoLibrePickedVectorFile {
 
 export interface GeoLibreAppAPI {
   setBasemap: (styleUrl: string) => void;
-  addGeoJsonLayer: (name: string, data: FeatureCollection, sourcePath?: string) => string;
+  addGeoJsonLayer: (
+    name: string,
+    data: FeatureCollection,
+    sourcePath?: string,
+    options?: GeoLibreGeoJsonLayerOptions,
+  ) => string;
+  /**
+   * Add a remote vector PMTiles archive through GeoLibre's shared range
+   * protocol as a persistent, reorderable Layers-panel entry.
+   */
+  addPmtilesLayer?: (
+    name: string,
+    url: string,
+    options: GeoLibrePmtilesLayerOptions,
+  ) => string;
   /**
    * Add a native XYZ raster tile layer from a tile URL template (with
    * `{x}`/`{y}`/`{z}` placeholders) and return its layer id. Unlike calling
@@ -439,6 +497,8 @@ export interface GeoLibreAppAPI {
   removeLayerGroup?: (id: string) => void;
   fitBounds?: (bounds: [number, number, number, number]) => void;
   getMap?: () => MapLibreMap | null;
+  /** Register host-managed hover highlighting and a field tooltip. */
+  registerFeatureInteraction?: (options: GeoLibreFeatureInteractionOptions) => () => void;
   /**
    * Open an http(s) URL in the system browser. Needed because the Tauri
    * desktop webview ignores `window.open`/`target="_blank"` and would open the

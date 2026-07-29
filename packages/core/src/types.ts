@@ -364,6 +364,18 @@ export interface LayerStyle {
   strokeColor: string;
   strokeWidth: number;
   /**
+   * Optional MapLibre expression (serialized as JSON) for line and polygon
+   * outline width. When non-empty it overrides {@link strokeWidth} and
+   * {@link strokeWidthUnit}. Keeping this as text mirrors the other
+   * data-defined style properties and keeps project JSON portable.
+   */
+  strokeWidthExpression: string;
+  /**
+   * MapLibre line dash pattern in stroke-width units. An empty array renders a
+   * solid line.
+   */
+  strokeDasharray: number[];
+  /**
    * Unit the {@link strokeWidth} value is expressed in.
    *
    * - `"pixels"` (default): a constant screen-space width that never changes
@@ -542,6 +554,8 @@ export const DEFAULT_LAYER_STYLE: LayerStyle = {
   fillColor: "#3b82f6",
   strokeColor: "#1e40af",
   strokeWidth: 2,
+  strokeWidthExpression: "",
+  strokeDasharray: [],
   strokeWidthUnit: "pixels",
   fillOpacity: 0.6,
   circleRadius: 6,
@@ -927,6 +941,24 @@ export interface AddTileLayerOptions {
   source?: Record<string, unknown>;
   /** Extra metadata merged onto the layer record. */
   metadata?: Record<string, unknown>;
+}
+
+/** Options for a persistent remote vector PMTiles layer. */
+export interface AddPmtilesLayerOptions {
+  /** HTTP(S) URL of the PMTiles archive. */
+  url: string;
+  /** Vector source-layer name inside the archive. */
+  sourceLayer: string;
+  /** Attribution shown in MapLibre's attribution control. */
+  attribution?: string;
+  /** Initial visibility (default true). */
+  visible?: boolean;
+  /** Initial opacity in [0, 1] (default 1). */
+  opacity?: number;
+  /** Minimum display zoom (default 0). */
+  minzoom?: number;
+  /** Maximum display zoom (default 24). */
+  maxzoom?: number;
 }
 
 /**

@@ -30,6 +30,7 @@ import {
   MAX_PROCESSING_HISTORY,
   MIN_DASHBOARD_COLUMNS,
   type AddTileLayerOptions,
+  type AddPmtilesLayerOptions,
   type CollaborationChatMessage,
   type CollaborationParticipant,
   type CollaborationPresence,
@@ -527,6 +528,7 @@ export interface AppState {
     geojson: FeatureCollection,
     sourcePath?: string,
     beforeLayerId?: string | null,
+    attribution?: string,
   ) => string;
   /**
    * Add a georeferenced image overlay (a MapLibre `image` source rendered as a
@@ -561,6 +563,16 @@ export interface AppState {
   addTileLayer: (
     name: string,
     options: AddTileLayerOptions,
+    beforeLayerId?: string | null,
+  ) => string;
+  /**
+   * Add a remote vector PMTiles archive as a persistent first-class layer.
+   * The map package consumes the store metadata through its shared
+   * `pmtiles://` range-request protocol.
+   */
+  addPmtilesLayer: (
+    name: string,
+    options: AddPmtilesLayerOptions,
     beforeLayerId?: string | null,
   ) => string;
 
@@ -1461,13 +1473,31 @@ export const useAppStore = create<AppState>()(
           return { layers: next, isDirty: true };
         }),
 
-      addGeoJsonLayer: (name, geojson, sourcePath, beforeLayerId = null) => {
+      addGeoJsonLayer: (
+        name,
+        geojson,
+        sourcePath,
+        beforeLayerId = null,
+        attribution,
+      ) => {
         const id = uuidv4();
+        const foreignAttribution = (
+          geojson as FeatureCollection & { attribution?: unknown }
+        ).attribution;
+        const sourceAttribution =
+          typeof attribution === "string" && attribution.trim()
+            ? attribution
+            : foreignAttribution;
         const layer: GeoLibreLayer = {
           id,
           name,
           type: "geojson",
-          source: { type: "geojson" },
+          source: {
+            type: "geojson",
+            ...(typeof sourceAttribution === "string" && sourceAttribution.trim()
+              ? { attribution: sourceAttribution }
+              : {}),
+          },
           visible: true,
           opacity: 1,
           style: {
@@ -1550,6 +1580,74 @@ export const useAppStore = create<AppState>()(
           opacity: options.opacity ?? 1,
           style: { ...DEFAULT_LAYER_STYLE },
           metadata: { ...(options.metadata ?? {}) },
+        };
+        get().addLayer(layer, beforeLayerId);
+        return id;
+      },
+
+      addPmtilesLayer: (name, options, beforeLayerId = null) => {
+        const url = options.url.trim();
+        const sourceLayer = options.sourceLayer.trim();
+        if (!url) {
+          throw new Error("addPmtilesLayer: options.url must be a non-empty string.");
+        }
+        if (!sourceLayer) {
+          throw new Error(
+            "addPmtilesLayer: options.sourceLayer must be a non-empty string.",
+          );
+        }
+        const minZoom = options.minzoom ?? 0;
+        const maxZoom = options.maxzoom ?? 24;
+        if (
+          !Number.isFinite(minZoom) ||
+          !Number.isFinite(maxZoom) ||
+          minZoom < 0 ||
+          maxZoom > 24
+        ) {
+          throw new Error(
+            "addPmtilesLayer: minzoom and maxzoom must be finite values from 0 through 24.",
+          );
+        }
+        if (minZoom > maxZoom) {
+          throw new Error(
+            `addPmtilesLayer: minzoom (${minZoom}) must be <= maxzoom (${maxZoom}).`,
+          );
+        }
+        const id = uuidv4();
+        const encodedSourceLayer = encodeURIComponent(sourceLayer).replaceAll("%", "_");
+        const nativeLayerIds = ["fill", "line", "circle"].map(
+          (kind) => `${id}-${encodedSourceLayer}-${kind}`,
+        );
+        const attribution = options.attribution?.trim();
+        const layer: GeoLibreLayer = {
+          id,
+          name,
+          type: "pmtiles",
+          source: {
+            type: "vector",
+            url,
+            sourceId: id,
+            sourceLayers: [sourceLayer],
+            tileType: "vector",
+            ...(attribution ? { attribution } : {}),
+          },
+          visible: options.visible ?? true,
+          opacity: Math.max(0, Math.min(1, options.opacity ?? 1)),
+          style: {
+            ...DEFAULT_LAYER_STYLE,
+            minZoom,
+            maxZoom,
+          },
+          metadata: {
+            externalNativeLayer: true,
+            nativeLayerIds,
+            pickable: true,
+            sourceId: id,
+            sourceKind: "pmtiles-url",
+            sourceLayers: [sourceLayer],
+            tileType: "vector",
+          },
+          sourcePath: url,
         };
         get().addLayer(layer, beforeLayerId);
         return id;
