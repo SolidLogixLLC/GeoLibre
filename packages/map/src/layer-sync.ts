@@ -1161,6 +1161,7 @@ function ensurePMTilesExternalLayer(
       },
       beforeId,
     );
+
   }
 }
 
@@ -2077,11 +2078,13 @@ function syncGeoJsonVtLayer(map: maplibregl.Map, layer: GeoLibreLayer, beforeId?
   }
 
   if (!map.getSource(src)) {
+    const attribution = stringSource(layer.source.attribution);
     map.addSource(src, {
       type: "vector",
       tiles: [geojsonVtTileUrl(layer.id)],
       minzoom: 0,
       maxzoom: TILE_MAX_ZOOM,
+      ...(attribution ? { attribution } : {}),
     });
   }
 

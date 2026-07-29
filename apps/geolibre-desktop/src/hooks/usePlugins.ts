@@ -99,12 +99,20 @@ import {
   getOpenFloatingPanels,
 } from "@geolibre/plugins";
 import { CesiumEngine, getPrimaryCesiumControlHost, type MapEngine } from "@geolibre/map";
+import {
+  circleLayerId,
+  fillLayerId,
+  lineLayerId,
+  type MapController,
+} from "@geolibre/map";
 import type {
   GeoLibreCogLayerOptions,
   GeoLibreCogRenderEngine,
   GeoLibreDeckGL,
   GeoLibreExternalNativeLayerRegistration,
+  GeoLibreFeatureInteractionOptions,
   GeoLibreFileDialogOptions,
+  GeoLibreGeoJsonLayerOptions,
   GeoLibreMapControlPosition,
   GeoLibreTileLayerOptions,
   GeoLibreWmsLayerOptions,
@@ -118,6 +126,7 @@ import { cogEngineDefaults } from "../lib/cog-render-engine";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readDir, readFile } from "@tauri-apps/plugin-fs";
+import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { bundledPluginManifestPaths } from "virtual:bundled-plugins";
@@ -348,6 +357,8 @@ export async function upgradeExternalPlugin(
   mapControllerRef: RefObject<MapEngine | null>,
 ): Promise<void> {
   await reloadExternalUrlPlugin(manager, manifestUrl, createAppAPI(mapControllerRef));
+  externalPluginLoadIssues.delete(manifestUrl);
+  notifyExternalPluginsListeners();
 }
 
 // Install a plugin from a local `.zip` archive (desktop only). The Rust backend
@@ -867,6 +878,196 @@ export function useTimeSliderAutoClose(mapControllerRef: RefObject<MapEngine | n
   }, [mapControllerRef]);
 }
 
+function hoverLineWidth(value: unknown, delta: number): unknown {
+  const whenHovered = (entry: unknown) => [
+    "case",
+    ["boolean", ["feature-state", "geolibre-plugin-hover"], false],
+    typeof entry === "number" ? entry + delta : ["+", entry, delta],
+    entry,
+  ];
+  if (
+    Array.isArray(value) &&
+    (value[0] === "interpolate" || value[0] === "step")
+  ) {
+    return value.map((entry, index) =>
+      value[0] === "interpolate"
+        ? index >= 4 && index % 2 === 0
+          ? whenHovered(entry)
+          : entry
+        : index === 2 || (index >= 4 && index % 2 === 0)
+          ? whenHovered(entry)
+          : entry,
+    );
+  }
+  return whenHovered(value);
+}
+
+function featureTooltip(
+  options: GeoLibreFeatureInteractionOptions,
+  properties: Record<string, unknown>,
+): HTMLDivElement {
+  const tooltip = document.createElement("div");
+  tooltip.className = "geolibre-plugin-feature-tooltip";
+  Object.assign(tooltip.style, {
+    position: "absolute",
+    zIndex: "20",
+    pointerEvents: "none",
+    minWidth: "180px",
+    maxWidth: "320px",
+    padding: "8px 10px",
+    borderRadius: "6px",
+    background: "rgba(17, 24, 39, 0.94)",
+    color: "#ffffff",
+    font: "12px/1.4 system-ui, sans-serif",
+    boxShadow: "0 4px 14px rgba(0, 0, 0, 0.28)",
+  });
+  if (options.titleField) {
+    const title = document.createElement("strong");
+    title.style.display = "block";
+    title.style.marginBottom = "4px";
+    title.textContent = String(properties[options.titleField] ?? "Unnamed feature");
+    tooltip.append(title);
+  }
+  for (const field of options.fields) {
+    const row = document.createElement("div");
+    const label = document.createElement("span");
+    label.style.opacity = "0.72";
+    label.textContent = `${field.label}: `;
+    const value = document.createElement("span");
+    const raw = properties[field.field];
+    value.textContent =
+      raw === null || raw === undefined || raw === "" ? "Not published" : String(raw);
+    row.append(label, value);
+    tooltip.append(row);
+  }
+  return tooltip;
+}
+
+function registerFeatureInteraction(
+  map: MapLibreMap | null,
+  options: GeoLibreFeatureInteractionOptions,
+): () => void {
+  if (!map) return () => undefined;
+  let tooltip: HTMLDivElement | null = null;
+  let hovering = false;
+  let hoveredFeatureState:
+    | { source: string; sourceLayer?: string; id: string | number }
+    | null = null;
+  const originalLineWidths = new Map<string, unknown>();
+  const originalFillOpacities = new Map<string, unknown>();
+
+  const nativeLayerIds = () => {
+    const layer = useAppStore.getState().layers.find((candidate) => candidate.id === options.layerId);
+    const ids = layer?.metadata.nativeLayerIds;
+    if (Array.isArray(ids)) {
+      return ids.filter(
+        (id): id is string => typeof id === "string" && Boolean(map.getLayer(id)),
+      );
+    }
+    if (layer?.type === "geojson") {
+      return [fillLayerId(layer.id), lineLayerId(layer.id), circleLayerId(layer.id)].filter(
+        (id) => Boolean(map.getLayer(id)),
+      );
+    }
+    return [];
+  };
+
+  const restorePaint = () => {
+    if (hoveredFeatureState) {
+      map.removeFeatureState(hoveredFeatureState, "geolibre-plugin-hover");
+      hoveredFeatureState = null;
+    }
+    for (const [id, value] of originalLineWidths) {
+      if (map.getLayer(id)) map.setPaintProperty(id, "line-width", value);
+    }
+    for (const [id, value] of originalFillOpacities) {
+      if (map.getLayer(id)) map.setPaintProperty(id, "fill-opacity", value);
+    }
+    originalLineWidths.clear();
+    originalFillOpacities.clear();
+  };
+
+  const leave = () => {
+    if (!hovering) return;
+    hovering = false;
+    restorePaint();
+    tooltip?.remove();
+    tooltip = null;
+    map.getCanvas().style.cursor = "";
+  };
+
+  const move = (event: MapMouseEvent) => {
+    const ids = nativeLayerIds();
+    if (ids.length === 0) {
+      leave();
+      return;
+    }
+    const feature = map.queryRenderedFeatures(event.point, { layers: ids })[0];
+    if (!feature) {
+      leave();
+      return;
+    }
+    if (!hovering) {
+      hovering = true;
+      if (options.cursor === "pointer") map.getCanvas().style.cursor = "pointer";
+      const strokeDelta = Math.max(0, options.hoverStrokeWidthDelta ?? 0);
+      for (const id of ids) {
+        const styleLayer = map.getLayer(id);
+        if (styleLayer?.type === "line" && strokeDelta > 0) {
+          const current = map.getPaintProperty(id, "line-width");
+          originalLineWidths.set(id, current);
+          map.setPaintProperty(id, "line-width", hoverLineWidth(current, strokeDelta));
+        }
+        if (styleLayer?.type === "fill" && options.hoverFillOpacity !== undefined) {
+          originalFillOpacities.set(id, map.getPaintProperty(id, "fill-opacity"));
+          map.setPaintProperty(id, "fill-opacity", options.hoverFillOpacity);
+        }
+      }
+    }
+    if (feature.id !== undefined) {
+      const nextFeatureState = {
+        source: feature.source,
+        ...(feature.sourceLayer ? { sourceLayer: feature.sourceLayer } : {}),
+        id: feature.id,
+      };
+      const changed =
+        hoveredFeatureState?.source !== nextFeatureState.source ||
+        hoveredFeatureState?.sourceLayer !== nextFeatureState.sourceLayer ||
+        hoveredFeatureState?.id !== nextFeatureState.id;
+      if (changed) {
+        if (hoveredFeatureState) {
+          map.removeFeatureState(hoveredFeatureState, "geolibre-plugin-hover");
+        }
+        hoveredFeatureState = nextFeatureState;
+        map.setFeatureState(nextFeatureState, { "geolibre-plugin-hover": true });
+      }
+    }
+    tooltip?.remove();
+    tooltip = featureTooltip(options, feature.properties ?? {});
+    tooltip.style.transform = `translate(${event.point.x + 12}px, ${event.point.y + 12}px)`;
+    map.getContainer().append(tooltip);
+  };
+
+  let disposed = false;
+  let unsubscribeLayerRemoval: () => void = () => undefined;
+  const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
+    unsubscribeLayerRemoval();
+    map.off("mousemove", move);
+    map.off("mouseout", leave);
+    leave();
+  };
+  unsubscribeLayerRemoval = useAppStore.subscribe((state, previous) => {
+    const existed = previous.layers.some((layer) => layer.id === options.layerId);
+    const exists = state.layers.some((layer) => layer.id === options.layerId);
+    if (existed && !exists) cleanup();
+  });
+  map.on("mousemove", move);
+  map.on("mouseout", leave);
+  return cleanup;
+}
+
 export function createAppAPI(mapControllerRef?: RefObject<MapEngine | null>) {
   const store = useAppStore.getState();
   // Captured so methods that delegate to plugin helpers taking the AppAPI
@@ -874,8 +1075,19 @@ export function createAppAPI(mapControllerRef?: RefObject<MapEngine | null>) {
   // when those methods are called, which is always after assignment.
   const api = {
     setBasemap: (url: string) => store.setBasemapStyleUrl(url),
-    addGeoJsonLayer: (name: string, data: GeoJSON.FeatureCollection, sourcePath?: string) => {
-      const id = store.addGeoJsonLayer(name, data, sourcePath);
+    addGeoJsonLayer: (
+      name: string,
+      data: GeoJSON.FeatureCollection,
+      sourcePath?: string,
+      options?: GeoLibreGeoJsonLayerOptions,
+    ) => {
+      const id = store.addGeoJsonLayer(
+        name,
+        data,
+        sourcePath,
+        null,
+        options?.attribution,
+      );
       return id;
     },
     ...createPluginLayerQueries(),
@@ -1080,6 +1292,8 @@ export function createAppAPI(mapControllerRef?: RefObject<MapEngine | null>) {
       return engine instanceof CesiumEngine ? engine.getCesiumScene() : null;
     },
     getProjectSnapshot: () => buildProjectEgressSnapshot(mapControllerRef ?? { current: null }),
+    registerFeatureInteraction: (options: GeoLibreFeatureInteractionOptions) =>
+      registerFeatureInteraction(mapControllerRef?.current?.getMap() ?? null, options),
     openExternalUrl: (url: string) => void openExternalLink(url),
     pickLocalDirectoryFiles,
     // Present only on desktop (filesystem access); the Vector panel keys off its

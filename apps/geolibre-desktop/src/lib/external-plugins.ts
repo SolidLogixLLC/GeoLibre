@@ -777,14 +777,25 @@ async function reloadExternalUrlPluginUncoalesced(
     clearTimeout(timeout);
   }
 
-  // Nothing was loaded for this URL (existingId null — e.g. the manifest is in
-  // settings but its initial load failed). Throw rather than registering the
-  // fetched plugin as a side effect, so the caller surfaces the inconsistency
-  // instead of the UI reporting a silent, invisible "success".
+  // Nothing was loaded for this URL (existingId null — for example, integrity
+  // verification blocked a changed bundle during startup). This function is
+  // reached only through an explicit user Reload/Update action, so accepting,
+  // pinning, and registering the freshly validated bundle is the intended
+  // recovery path.
   if (existingId === null) {
-    throw new Error(
-      `Cannot update plugin: no loaded version was found for '${manifestUrl}'. Try reloading the app.`,
-    );
+    if (manager.list().some((registered) => registered.id === plugin.id)) {
+      throw new Error(`Cannot reload plugin: id '${plugin.id}' is already registered.`);
+    }
+    manager.register(plugin);
+    externallyLoadedPluginSources.set(plugin.id, manifestUrl);
+    pinPluginBundle(manifestUrl, await computePluginBundleHash(bundle));
+    if (bundle.styleSource) {
+      injectExternalPluginStyle(plugin.id, bundle.styleSource);
+    }
+    if (plugin.activeByDefault) {
+      manager.activateDefaultPlugins([plugin.id], app);
+    }
+    return plugin;
   }
 
   // If the plugin was uninstalled while we were fetching (its source was
@@ -811,6 +822,10 @@ async function reloadExternalUrlPluginUncoalesced(
   if (bundle.styleSource) {
     injectExternalPluginStyle(plugin.id, bundle.styleSource);
   }
-  if (wasActive) manager.activate(plugin.id, app);
+  if (plugin.activeByDefault) {
+    manager.activateDefaultPlugins([plugin.id], app);
+  } else if (wasActive) {
+    manager.activate(plugin.id, app);
+  }
   return plugin;
 }
