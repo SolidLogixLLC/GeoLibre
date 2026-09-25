@@ -15,6 +15,11 @@ export function normalizeSharedDesktopSettings(settings: Record<string, unknown>
     layout: settings.layout,
     theme: settings.theme,
     uiProfile: settings.uiProfile,
+    // Explicitly empty, not omitted: normalizeDesktopSettings treats an
+    // *absent* pluginManifestUrls as first-run/legacy data and fills in the
+    // local dev default, which would otherwise undo the omission above and
+    // let a shared link resurrect a plugin source.
+    pluginManifestUrls: [],
   });
 }
 
