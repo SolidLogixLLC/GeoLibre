@@ -126,7 +126,11 @@ import { cogEngineDefaults } from "../lib/cog-render-engine";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readDir, readFile } from "@tauri-apps/plugin-fs";
-import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
+import type {
+  DataDrivenPropertyValueSpecification,
+  Map as MapLibreMap,
+  MapMouseEvent,
+} from "maplibre-gl";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { bundledPluginManifestPaths } from "virtual:bundled-plugins";
@@ -978,10 +982,22 @@ function registerFeatureInteraction(
       hoveredFeatureState = null;
     }
     for (const [id, value] of originalLineWidths) {
-      if (map.getLayer(id)) map.setPaintProperty(id, "line-width", value);
+      if (map.getLayer(id)) {
+        map.setPaintProperty(
+          id,
+          "line-width",
+          value as DataDrivenPropertyValueSpecification<number> | undefined,
+        );
+      }
     }
     for (const [id, value] of originalFillOpacities) {
-      if (map.getLayer(id)) map.setPaintProperty(id, "fill-opacity", value);
+      if (map.getLayer(id)) {
+        map.setPaintProperty(
+          id,
+          "fill-opacity",
+          value as DataDrivenPropertyValueSpecification<number> | undefined,
+        );
+      }
     }
     originalLineWidths.clear();
     originalFillOpacities.clear();
@@ -1016,7 +1032,13 @@ function registerFeatureInteraction(
         if (styleLayer?.type === "line" && strokeDelta > 0) {
           const current = map.getPaintProperty(id, "line-width");
           originalLineWidths.set(id, current);
-          map.setPaintProperty(id, "line-width", hoverLineWidth(current, strokeDelta));
+          map.setPaintProperty(
+            id,
+            "line-width",
+            hoverLineWidth(current, strokeDelta) as
+              | DataDrivenPropertyValueSpecification<number>
+              | undefined,
+          );
         }
         if (styleLayer?.type === "fill" && options.hoverFillOpacity !== undefined) {
           originalFillOpacities.set(id, map.getPaintProperty(id, "fill-opacity"));
