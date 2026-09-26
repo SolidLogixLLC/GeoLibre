@@ -701,6 +701,60 @@ const cleanup = app.registerFeatureInteraction?.({
 
 > **Desktop (Tauri) note:** The desktop app enforces a Content Security Policy that restricts which tile hosts the WebView can reach. If your plugin registers tiles from a host not already in the GeoLibre CSP allowlist, the layer is created but its tiles silently fail to load. For bundled (first-party) plugins, add the host to `connect-src` / `img-src` in `apps/geolibre-desktop/src-tauri/tauri.conf.json`; external plugins can only reach already-permitted hosts. The web build is unaffected.
 
+## Vector tile layers
+
+`addVectorTileLayer` registers a server-rendered vector-tile (MVT) source as a
+native `"vector-tiles"` layer: styled with `setLayerStyle` and interacted with
+through `registerFeatureInteraction` exactly like a layer added with
+`addGeoJsonLayer`, but never loading feature data into the plugin's own JS heap
+— GeoLibre's own layer sync requests, decodes, and renders the tiles directly.
+Prefer it over `addGeoJsonLayer` for a dataset too large to fetch and hold as
+one GeoJSON payload (e.g. a national fault catalog), when the tiles are served
+by the plugin's own backend.
+
+```typescript
+export interface GeoLibreVectorTileLayerOptions {
+  tiles: string[]; // absolute XYZ tile URL templates ({z}/{x}/{y})
+  sourceLayer: string; // MVT source-layer name inside each tile
+  minzoom?: number;
+  maxzoom?: number;
+  bounds?: [number, number, number, number]; // [west, south, east, north] in WGS84
+  attribution?: string;
+  geometryType?: "point" | "line" | "polygon";
+}
+```
+
+```typescript
+const faultsLayerId = app.addVectorTileLayer?.("Quaternary faults", {
+  tiles: ["https://core.example.com/api/v1/tiles/faults/{z}/{x}/{y}.mvt"],
+  sourceLayer: "faults",
+  geometryType: "line",
+  attribution: "Core Geologix",
+});
+app.setLayerStyle?.(faultsLayerId!, {
+  vectorRules: [{ filter: ["==", ["get", "class"], "certain"], strokeColor: "#c0392b" }],
+  strokeDasharray: [4, 2],
+  labels: { enabled: true, field: "name", colorExpression: '["get", "labelColor"]' },
+});
+```
+
+`geometryType` sets the layer's `metadata.geometryType`, the same signal
+`addTileLayer`'s raster counterpart has no need for but a tile layer's own
+Layers-panel swatch and on-map legend need — with no local GeoJSON to sample, a
+`"vector-tiles"` layer draws a generic square swatch until this is set.
+
+Hover highlighting and per-feature click state (`registerFeatureInteraction`,
+the Style panel's "click to select") key off each rendered feature's MapLibre
+`id`. A GeoJSON layer gets one for free (GeoLibre assigns it on load); an MVT
+tile only carries one if the tile itself encodes a feature id (the [Mapbox
+Vector Tile spec's optional per-feature `id` field][mvt-spec], not merely an
+`id`-named property) — set that at the tile-generation side, since this API
+has no `promoteId` option to promote a property after the fact. A tileset with
+no feature ids still renders and styles correctly; only hover/selection
+feedback on it is inert.
+
+[mvt-spec]: https://github.com/mapbox/vector-tile-spec/tree/master/2.1#42-features
+
 ## Zarr layers
 
 `addZarrLayer` renders a Zarr store (Zarr v2/v3 over HTTP) through **GeoLibre's own** `@carbonplan/zarr-layer` instance and mirrors the result into the Layers panel. It is the Zarr counterpart of `addCogLayer`. Stores that are not read from a URL — a kerchunk-backed cloud NetCDF, an Icechunk repository, a folder on disk — reach the same renderer through an internal `store` option that this API does not expose, so they are added by GeoLibre's own panels rather than by a plugin.
