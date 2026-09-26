@@ -57,6 +57,14 @@ interface LayerGroupHeaderProps {
   >;
   onDragOver: (event: ReactDragEvent<HTMLDivElement>, groupId: string) => void;
   onDrop: (event: ReactDragEvent<HTMLDivElement>, groupId: string) => void;
+  /**
+   * Whether "Compact layer cards" is on (geologix fork addition). When true,
+   * the header shows a member-layer count and moves the group opacity
+   * slider into the "⋯" menu; when false the header is unchanged.
+   */
+  compact: boolean;
+  /** Number of layers directly in this group, shown as a count badge when compact. */
+  memberCount: number;
 }
 
 /** A group (folder) header row in the layer list, with its actions menu. */
@@ -71,6 +79,8 @@ export function LayerGroupHeader({
   rename,
   onDragOver,
   onDrop,
+  compact,
+  memberCount,
 }: LayerGroupHeaderProps) {
   const { i18n, t } = useTranslation();
   const removeLayerGroup = useAppStore((s) => s.removeLayerGroup);
@@ -178,6 +188,14 @@ export function LayerGroupHeader({
             {group.name}
           </span>
         )}
+        {compact && (
+          <span
+            className="shrink-0 rounded-full bg-muted px-1.5 text-[11px] text-muted-foreground"
+            title={t("layers.groupMemberCount", { count: memberCount })}
+          >
+            {memberCount}
+          </span>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -201,6 +219,23 @@ export function LayerGroupHeader({
               <Pencil className="me-2 h-3.5 w-3.5" />
               {t("layers.renameGroup")}
             </DropdownMenuItem>
+            {/* The group opacity slider lives here instead of always under
+                the header when compact (geologix fork addition; the simpler
+                of the two options the design allowed — see the packet). */}
+            {compact && (
+              <>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5" onClick={(e: ReactMouseEvent) => e.stopPropagation()}>
+                  <LayerOpacitySlider
+                    label={t("layers.groupOpacity")}
+                    ariaLabel={t("layers.groupOpacityAria", { name: group.name })}
+                    value={group.opacity}
+                    onChange={(v) => setLayerGroupOpacity(group.id, v)}
+                  />
+                </div>
+                <DropdownMenuSeparator />
+              </>
+            )}
             {addDataGroupSources.length > 0 && (
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
@@ -304,7 +339,7 @@ export function LayerGroupHeader({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {!group.collapsed && (
+      {!compact && !group.collapsed && (
         <LayerOpacitySlider
           label={t("layers.groupOpacity")}
           ariaLabel={t("layers.groupOpacityAria", { name: group.name })}

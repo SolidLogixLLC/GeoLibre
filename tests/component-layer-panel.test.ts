@@ -1,8 +1,31 @@
-import { act, fireEvent, render, screen, useAppStore, within } from "./helpers/dom";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  useAppStore,
+  useDesktopSettingsStore,
+  within,
+} from "./helpers/dom";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createElement } from "react";
 import { geojsonLayer } from "./helpers/layer-fixtures";
+
+/**
+ * "Compact layer cards" defaults to on in this fork. Tests below that exercise
+ * the pre-compact row (its buttons are direct children rather than behind an
+ * expand chevron) turn it off explicitly; the compact layout gets its own
+ * describe block further down.
+ */
+function setCompactLayerCards(value: boolean): void {
+  useDesktopSettingsStore.setState((state) => ({
+    desktopSettings: {
+      ...state.desktopSettings,
+      layout: { ...state.desktopSettings.layout, compactLayerCards: value },
+    },
+  }));
+}
 
 // Loaded after the harness so its CSS imports and Vite globals are handled.
 const { LayerPanel } = await import("../apps/geolibre-desktop/src/components/panels/LayerPanel");
@@ -139,6 +162,7 @@ describe("LayerPanel", () => {
   });
 
   it("moves a layer up the draw order", () => {
+    setCompactLayerCards(false);
     useAppStore.setState({
       layers: [
         geojsonLayer({ id: "rivers", name: "Rivers" }),
@@ -157,6 +181,7 @@ describe("LayerPanel", () => {
   });
 
   it("keeps the metadata dialog in step with the live layer", () => {
+    setCompactLayerCards(false);
     useAppStore.setState({
       layers: [geojsonLayer({ id: "parks", name: "Parks", metadata: { featureCount: 3 } })],
     });
@@ -191,5 +216,115 @@ describe("LayerPanel", () => {
       useAppStore.setState({ layers: [geojsonLayer({ id: "parks", name: "Parks again" })] });
     });
     assert.equal(screen.queryAllByRole("dialog").length, 0);
+  });
+
+  it("keeps today's row layout unchanged when Compact layer cards is off", () => {
+    setCompactLayerCards(false);
+    useAppStore.setState({ layers: [geojsonLayer({ id: "parks", name: "Parks" })] });
+    renderLayerPanel();
+
+    const parksRow = row("Parks");
+    assert.equal(parksRow.hasAttribute("data-compact"), false);
+    // The opacity slider and the full action row are direct children of the
+    // card — no expand/collapse control to get past.
+    assert.ok(within(parksRow).queryByTitle("Double-click to enter an exact value"));
+    within(parksRow).getByRole("button", { name: "Move up" });
+    within(parksRow).getByRole("button", { name: "Metadata" });
+    within(parksRow).getByRole("button", { name: "Remove layer" });
+    assert.equal(
+      within(parksRow).queryAllByRole("button", { name: /^Expand / }).length,
+      0,
+    );
+  });
+});
+
+describe("LayerPanel compact layer cards", () => {
+  it("collapses a layer card to one row by default", () => {
+    useAppStore.setState({ layers: [geojsonLayer({ id: "parks", name: "Parks" })] });
+    renderLayerPanel();
+
+    const parksRow = row("Parks");
+    assert.ok(parksRow.hasAttribute("data-compact"));
+    // The eye toggle, name and "..." menu stay visible collapsed; the
+    // opacity slider and the compact action bar do not until expanded.
+    within(parksRow).getByRole("button", { name: "Hide layer" });
+    within(parksRow).getByRole("button", { name: "Layer actions" });
+    const chevron = within(parksRow).getByRole("button", { name: "Expand Parks" });
+    assert.equal(chevron.getAttribute("aria-expanded"), "false");
+    assert.equal(
+      within(parksRow).queryByTitle("Double-click to enter an exact value"),
+      null,
+    );
+    assert.equal(within(parksRow).queryAllByRole("button", { name: "Zoom to" }).length, 0);
+    assert.equal(within(parksRow).queryAllByRole("button", { name: "Metadata" }).length, 0);
+  });
+
+  it("expands a card on chevron click to reveal opacity and actions, and keeps focus on the chevron", () => {
+    useAppStore.setState({ layers: [geojsonLayer({ id: "parks", name: "Parks" })] });
+    renderLayerPanel();
+
+    const parksRow = row("Parks");
+    const expandButton = within(parksRow).getByRole("button", { name: "Expand Parks" });
+    expandButton.focus();
+    fireEvent.click(expandButton);
+
+    const collapseButton = within(parksRow).getByRole("button", { name: "Collapse Parks" });
+    assert.equal(collapseButton.getAttribute("aria-expanded"), "true");
+    // The control the user just activated is the one focus stays on, so a
+    // keyboard user's place in the list is never lost across the toggle.
+    assert.equal(document.activeElement, collapseButton);
+    within(parksRow).getByTitle("Double-click to enter an exact value");
+    within(parksRow).getByRole("button", { name: "Zoom to" });
+    within(parksRow).getByRole("button", { name: "Identify" });
+    within(parksRow).getByRole("button", { name: "Metadata" });
+    // Move up/down and Remove moved out of the row into the "..." menu.
+    assert.equal(within(parksRow).queryAllByRole("button", { name: "Move up" }).length, 0);
+    assert.equal(within(parksRow).queryAllByRole("button", { name: "Remove layer" }).length, 0);
+
+    fireEvent.click(collapseButton);
+    const expandAgain = within(row("Parks")).getByRole("button", { name: "Expand Parks" });
+    assert.equal(expandAgain.getAttribute("aria-expanded"), "false");
+    assert.equal(document.activeElement, expandAgain);
+    assert.equal(
+      within(row("Parks")).queryByTitle("Double-click to enter an exact value"),
+      null,
+    );
+  });
+
+  it("still toggles visibility and renames from the collapsed row", () => {
+    useAppStore.setState({ layers: [geojsonLayer({ id: "parks", name: "Parks" })] });
+    renderLayerPanel();
+
+    fireEvent.click(within(row("Parks")).getByRole("button", { name: "Hide layer" }));
+    assert.equal(layer("parks")?.visible, false);
+
+    fireEvent.doubleClick(within(row("Parks")).getByText("Parks"));
+    const input = screen.getByRole("textbox", { name: "Rename Parks" });
+    fireEvent.change(input, { target: { value: "City parks" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    assert.equal(layer("parks")?.name, "City parks");
+  });
+
+  it("shows a member-layer count on a group header instead of always-on opacity", () => {
+    act(() => {
+      useAppStore.getState().addLayerGroup("Faults", []);
+    });
+    const groupId = useAppStore.getState().layerGroups[0]?.id;
+    assert.ok(groupId);
+    useAppStore.setState({
+      layers: [
+        geojsonLayer({ id: "qfaults", name: "USGS QFaults", groupId }),
+        geojsonLayer({ id: "gem", name: "GEM Global Active Faults", groupId }),
+      ],
+    });
+    renderLayerPanel();
+
+    const header = screen.getByTestId("layer-group-header");
+    within(header).getByText("2");
+    // The slider is not always shown under a compact group header anymore.
+    assert.equal(
+      within(header).queryByTitle("Double-click to enter an exact value"),
+      null,
+    );
   });
 });

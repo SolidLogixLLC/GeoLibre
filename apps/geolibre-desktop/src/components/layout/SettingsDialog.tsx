@@ -63,6 +63,7 @@ import {
   PanelRight,
   Plus,
   RotateCcw,
+  Rows3,
   Settings,
   SlidersHorizontal,
   Sun,
@@ -2313,6 +2314,30 @@ export function SettingsDialog({
                       />
                       <MessageSquare className="h-4 w-4 text-muted-foreground" />
                       <span>{t("settings.layout.showCommentsPanel")}</span>
+                    </label>
+                  </div>
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t("settings.layout.layerPanel")}
+                    </h4>
+                    <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
+                      <input
+                        className="h-4 w-4"
+                        type="checkbox"
+                        checked={draftDesktopSettings.layout.compactLayerCards}
+                        onChange={(event) =>
+                          updateDraftLayoutSettings({
+                            compactLayerCards: event.target.checked,
+                          })
+                        }
+                      />
+                      <Rows3 className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        <span className="block">{t("settings.layout.compactLayerCards")}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {t("settings.layout.compactLayerCardsHint")}
+                        </span>
+                      </span>
                     </label>
                   </div>
                   {showsAdvancedNotices(desktopSettings.uiProfile) ? (

@@ -40,6 +40,8 @@ import {
 } from "@geolibre/ui";
 import {
   CalendarClock,
+  ChevronDown,
+  ChevronUp,
   CircleDashed,
   ClipboardPaste,
   ClipboardType,
@@ -71,6 +73,7 @@ import {
   Table2,
   TableProperties,
   Timer,
+  Trash2,
   Unlock,
   Upload,
   X,
@@ -132,6 +135,8 @@ export interface LayerActionsMenuShared {
   onOpenRasterStylePanel: () => void;
   onOpenStylePanel?: () => void;
   onOpenRasterSubset: (layer: GeoLibreLayer) => void;
+  /** Removes the layer, pending the confirmation dialog (geologix fork addition). */
+  onRequestRemove: (layer: GeoLibreLayer) => void;
 }
 
 interface LayerActionsMenuItemsProps {
@@ -150,6 +155,12 @@ interface LayerActionsMenuItemsProps {
   layerEditable: boolean;
   refreshConfig: ReturnType<typeof getLayerRefreshConfig>;
   isRefreshing: boolean;
+  /**
+   * Whether "Compact layer cards" is on (geologix fork addition). When true,
+   * the menu also carries Move up / Move down / Remove, which the compact
+   * row no longer shows as its own buttons.
+   */
+  compact: boolean;
 }
 
 /**
@@ -168,6 +179,7 @@ export function LayerActionsMenuItems({
   layerEditable,
   refreshConfig,
   isRefreshing,
+  compact,
 }: LayerActionsMenuItemsProps) {
   const { t } = useTranslation();
   const {
@@ -194,7 +206,9 @@ export function LayerActionsMenuItems({
     onOpenRasterStylePanel,
     onOpenStylePanel,
     onOpenRasterSubset,
+    onRequestRemove,
   } = shared;
+  const reorderLayer = useAppStore((s) => s.reorderLayer);
   const {
     quickBufferPresets,
     formatQuickDistance,
@@ -387,6 +401,41 @@ export function LayerActionsMenuItems({
         <Pencil className="me-2 h-3.5 w-3.5" />
         {t("layers.rename")}
       </DropdownMenuItem>
+      {/* The compact row keeps only Zoom to / Identify / Style / Metadata as
+          its own buttons in the expanded state; Move up, Move down and
+          Remove move in here instead (geologix fork addition). Drag still
+          reorders in both layouts. */}
+      {compact && (
+        <>
+          <DropdownMenuItem
+            onSelect={() => {
+              reorderLayer(layer.id, "up");
+            }}
+          >
+            <ChevronUp className="me-2 h-3.5 w-3.5" />
+            {t("layers.moveUp")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              reorderLayer(layer.id, "down");
+            }}
+          >
+            <ChevronDown className="me-2 h-3.5 w-3.5" />
+            {t("layers.moveDown")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-destructive"
+            disabled={!layerEditable}
+            onSelect={() => {
+              if (!layerEditable) return;
+              onRequestRemove(layer);
+            }}
+          >
+            <Trash2 className="me-2 h-3.5 w-3.5" />
+            {t("layers.removeLayer")}
+          </DropdownMenuItem>
+        </>
+      )}
       <DropdownMenuSeparator />
       {/* The Rename item above keeps preventDefault so the
       menu's close does not race its input autofocus. Every

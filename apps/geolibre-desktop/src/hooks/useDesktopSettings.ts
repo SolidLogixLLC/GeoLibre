@@ -139,6 +139,12 @@ export interface DesktopLayoutSettings {
   showProjectInfo: boolean;
   stylePanelVisible: boolean;
   toolbarLabels: boolean;
+  /**
+   * Collapse each layer-panel card to one row, showing the opacity slider and
+   * action buttons only for the expanded card (geologix fork addition).
+   * Default true in this fork; upstream has no equivalent setting.
+   */
+  compactLayerCards: boolean;
 }
 
 /** Experience-level presets offered by the onboarding wizard and Settings. */
@@ -190,6 +196,7 @@ export const DEFAULT_DESKTOP_LAYOUT_SETTINGS: DesktopLayoutSettings = {
   showProjectInfo: true,
   stylePanelVisible: true,
   toolbarLabels: true,
+  compactLayerCards: true,
 };
 
 export const DEFAULT_UI_PROFILE_SETTINGS: UiProfileSettings = {
@@ -507,6 +514,10 @@ function normalizeDesktopLayoutSettings(layout: unknown): DesktopLayoutSettings 
       typeof candidate.toolbarLabels === "boolean"
         ? candidate.toolbarLabels
         : DEFAULT_DESKTOP_LAYOUT_SETTINGS.toolbarLabels,
+    compactLayerCards:
+      typeof candidate.compactLayerCards === "boolean"
+        ? candidate.compactLayerCards
+        : DEFAULT_DESKTOP_LAYOUT_SETTINGS.compactLayerCards,
   };
 }
 

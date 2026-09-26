@@ -94,6 +94,16 @@ interface LayerRowProps {
   onRequestRemove: (layer: GeoLibreLayer) => void;
   /** Panel-wide state and handlers for the row's actions menu. */
   menu: LayerActionsMenuShared;
+  /**
+   * Whether the "Compact layer cards" setting is on (geologix fork addition).
+   * When false, the row renders the pre-compact layout unchanged. When true,
+   * the row collapses to one line and shows the opacity slider plus a
+   * compact action bar only while `expanded`.
+   */
+  compact: boolean;
+  /** Whether this row's compact card is expanded. Ignored when `!compact`. */
+  expanded: boolean;
+  onToggleExpanded: (layerId: string) => void;
 }
 
 /** One layer card in the layer list: visibility, name, badges, opacity and actions. */
@@ -131,6 +141,9 @@ export function LayerRow({
   onOpenMetadata,
   onRequestRemove,
   menu,
+  compact,
+  expanded,
+  onToggleExpanded,
 }: LayerRowProps) {
   const { i18n, t } = useTranslation();
   const setLayerVisibility = useAppStore((s) => s.setLayerVisibility);
@@ -233,7 +246,9 @@ export function LayerRow({
           }
         : undefined);
   const isRefreshing = refreshStatus?.type === "refreshing";
-  return (
+  // Pre-compact layout, rendered unchanged when the "Compact layer cards"
+  // setting is off (#compact).
+  const legacyRow = (
     <div
       data-layer-card=""
       data-testid="layer-row"
@@ -601,6 +616,7 @@ export function LayerRow({
               layerEditable={layerEditable}
               refreshConfig={refreshConfig}
               isRefreshing={isRefreshing}
+              compact={false}
             />
           </DropdownMenuContent>
         </DropdownMenu>
@@ -633,6 +649,366 @@ export function LayerRow({
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
+    </div>
+  );
+
+  if (!compact) return legacyRow;
+
+  const opacitySliderVisible =
+    !pluginOwnsPaint(layer) ||
+    supportsBridgedOpacity(layer.id) ||
+    rendererAppliesOpacity(layer, primaryRenderer);
+
+  return (
+    <div
+      data-layer-card=""
+      data-testid="layer-row"
+      data-layer-name={layer.name}
+      data-compact=""
+      className={`group relative min-w-0 max-w-full rounded-md border transition-colors ${
+        selected
+          ? "border-primary bg-primary/5"
+          : "border-border bg-background hover:border-muted-foreground/40 hover:bg-muted/20"
+      } ${dragged ? "opacity-50" : ""} ${group ? "" : "w-full"}`}
+      style={
+        group
+          ? {
+              marginInlineStart: `${groupDepth(group) + 1}rem`,
+              width: `calc(100% - ${groupDepth(group) + 1}rem)`,
+            }
+          : undefined
+      }
+      onDragOver={(e) => onDragOver(e, layer.id)}
+      onDrop={(e) => onDrop(e, layer.id, displayIndex)}
+      onDragEnd={onDragEnd}
+      aria-pressed={selected}
+      onClick={(e) => onSelect(e, layer.id)}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          selectOnlyLayer(layer.id);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      {dropTarget && draggedDisplayIndex > displayIndex && (
+        <div className="pointer-events-none absolute -top-1 left-2 right-2 h-1 rounded-full bg-primary shadow-[0_0_0_2px_hsl(var(--background))]" />
+      )}
+      {dropTarget && draggedDisplayIndex >= 0 && draggedDisplayIndex < displayIndex && (
+        <div className="pointer-events-none absolute -bottom-1 left-2 right-2 h-1 rounded-full bg-primary shadow-[0_0_0_2px_hsl(var(--background))]" />
+      )}
+      <div className="flex h-[34px] min-w-0 items-center gap-1 px-2">
+        <span
+          role="button"
+          tabIndex={0}
+          draggable
+          title={t("layers.dragToReorder")}
+          aria-label={t("layers.dragNamedToReorder", {
+            name: layer.name,
+          })}
+          // Hidden until hover or keyboard focus lands on it, so the
+          // collapsed row stays a single quiet line otherwise (#compact).
+          className="cursor-grab rounded p-0.5 text-muted-foreground opacity-0 hover:bg-muted focus:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 active:cursor-grabbing"
+          onClick={(e: ReactMouseEvent) => e.stopPropagation()}
+          onDragStart={(e) => onDragStart(e, layer.id)}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </span>
+        <button
+          type="button"
+          className="rounded p-0.5 hover:bg-muted"
+          title={visibilityToggleLabel}
+          aria-label={visibilityToggleLabel}
+          onClick={(e) => {
+            e.stopPropagation();
+            setLayerVisibility(layer.id, !layer.visible);
+          }}
+        >
+          {layer.visible ? (
+            <Eye className={`h-3.5 w-3.5 ${groupHidden ? "text-muted-foreground" : ""}`} />
+          ) : (
+            <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+        </button>
+        <LayerSwatchIcon layer={layer} />
+        {editing ? (
+          <input
+            autoFocus
+            type="text"
+            className="flex-1 min-w-0 rounded border border-input bg-background px-1 py-0.5 text-sm font-medium outline-none focus:ring-1 focus:ring-ring"
+            value={editingName}
+            aria-label={t("layers.renameNamed", {
+              name: layer.name,
+            })}
+            onChange={(e) => setEditingName(e.target.value)}
+            onClick={(e: ReactMouseEvent) => e.stopPropagation()}
+            onFocus={(e) => e.currentTarget.select()}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitRename();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancelRename();
+              }
+            }}
+          />
+        ) : (
+          <span
+            className={`min-w-0 flex-1 truncate text-sm font-medium ${
+              groupHidden ? "text-muted-foreground" : ""
+            }`}
+            // The type label lives in this tooltip in the compact row
+            // rather than as its own visible span (#compact).
+            title={
+              isLayerLocked
+                ? t("collaborate.layerLockedHint")
+                : t("layers.nameAndType", {
+                    name: layer.name,
+                    type: layerTypeLabel(layer, t),
+                  })
+            }
+            onDoubleClick={(e: ReactMouseEvent) => {
+              e.stopPropagation();
+              if (layerEditable) beginRename(layer);
+            }}
+          >
+            {layer.name}
+          </span>
+        )}
+        {isLayerLocked && (
+          <span title={t("collaborate.layerLockedHint")}>
+            <Lock
+              className="h-3 w-3 shrink-0 text-amber-500"
+              aria-label={t("collaborate.layerLockedHint")}
+            />
+          </span>
+        )}
+        {hasActiveLayerFilter(layer) && (
+          <span title={t(layerFilteredHintKey(layer))}>
+            <Filter
+              className="h-3 w-3 shrink-0 text-primary"
+              aria-label={t(layerFilteredHintKey(layer))}
+            />
+          </span>
+        )}
+        {cesiumPrimary && !isCesiumSupportedLayerType(layer) && (
+          <span
+            title={t("renderer.layerUnsupported")}
+            className="shrink-0 rounded-sm bg-muted px-1 text-[10px] uppercase text-muted-foreground"
+          >
+            {t("mapGrid.only2d")}
+          </span>
+        )}
+        {!cesiumPrimary && isCesiumOnlyLayer(layer) && (
+          <span
+            title={t("renderer.layerCesiumOnly")}
+            className="shrink-0 rounded-sm bg-muted px-1 text-[10px] uppercase text-muted-foreground"
+          >
+            {t("mapGrid.only3d")}
+          </span>
+        )}
+        {mapboxPrimary && !isCesiumOnlyLayer(layer) && !isMapboxSupportedLayer(layer) && (
+          <span
+            title={t("renderer.layerMapboxUnsupported")}
+            className="shrink-0 rounded-sm bg-muted px-1 text-[10px] uppercase text-muted-foreground"
+          >
+            {t("mapGrid.noMapbox")}
+          </span>
+        )}
+        {arcgisPrimary &&
+          !isCesiumOnlyLayer(layer) &&
+          !isArcgisSupportedLayer(layer, deckOverlay) && (
+            <span
+              title={t("renderer.layerArcgisUnsupported")}
+              className="shrink-0 rounded-sm bg-muted px-1 text-[10px] uppercase text-muted-foreground"
+            >
+              {t("mapGrid.noArcgis")}
+            </span>
+          )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-7 w-7 ${
+                refreshConfig.enabled ? "border border-primary text-primary" : ""
+              }`}
+              title={t("layers.layerActions")}
+              aria-label={t("layers.layerActions")}
+              onClick={(e: ReactMouseEvent) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e: ReactMouseEvent) => e.stopPropagation()}>
+            <LayerActionsMenuItems
+              shared={menu}
+              layer={layer}
+              layerCaps={layerCaps}
+              layerRendered={layerRendered}
+              identifyOwnsClicks={identifyOwnsClicks}
+              geometryEditActive={geometryEditActive}
+              geometryEditElsewhere={geometryEditElsewhere}
+              isLayerLocked={isLayerLocked}
+              layerEditable={layerEditable}
+              refreshConfig={refreshConfig}
+              isRefreshing={isRefreshing}
+              compact
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <button
+          type="button"
+          className="rounded p-0.5 text-muted-foreground hover:bg-muted"
+          title={expanded ? t("layers.collapseLayer", { name: layer.name }) : t("layers.expandLayer", { name: layer.name })}
+          aria-label={
+            expanded
+              ? t("layers.collapseLayer", { name: layer.name })
+              : t("layers.expandLayer", { name: layer.name })
+          }
+          aria-expanded={expanded}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleExpanded(layer.id);
+          }}
+        >
+          {expanded ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </button>
+      </div>
+      {(!cesiumPrimary || !isCesiumSupportedLayerType(layer)) &&
+        (!arcgisPrimary || !isArcgisSupportedLayer(layer, deckOverlay)) &&
+        isPlaceholderLayer(layer) && (
+          <p className="mt-1 px-2 pb-1 text-[10px] text-amber-600">{placeholderMessage(layer)}</p>
+        )}
+      {refreshStatus && (
+        <p
+          title={layer.connection?.lastError ?? layer.connection?.lastSyncedAt ?? ""}
+          className={`mt-1 px-2 pb-1 text-[10px] ${
+            refreshStatus.type === "error"
+              ? "text-destructive"
+              : refreshStatus.type === "success"
+                ? "text-emerald-600"
+                : refreshStatus.type === "warning"
+                  ? "text-amber-600"
+                  : "text-muted-foreground"
+          }`}
+        >
+          {refreshStatus.message}
+        </p>
+      )}
+      {geometryEditActive && (
+        <div className="mx-2 mb-1 flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-1">
+          <PencilRuler className="h-3 w-3 text-primary" />
+          <span className="flex-1 text-[10px] font-medium text-primary">
+            {t("layers.editingGeometry")}
+          </span>
+          <Button
+            variant="default"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            title={t("layers.saveGeometryEdits")}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleGeometryEdit(layer.id);
+            }}
+          >
+            {t("common.save")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            title={t("layers.discardGeometryEdits")}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancelGeometryEdit();
+            }}
+          >
+            {t("common.cancel")}
+          </Button>
+        </div>
+      )}
+      {expanded && (
+        <div className="flex flex-col gap-2 px-2 pb-2 pt-1">
+          {opacitySliderVisible && (
+            <LayerOpacitySlider
+              label={t("layers.opacity")}
+              ariaLabel={t("layers.opacityFor", { name: layer.name })}
+              value={layer.opacity}
+              onChange={(v) => setLayerOpacity(layer.id, v)}
+            />
+          )}
+          <div className="flex flex-wrap gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11.5px]"
+              title={t("layers.zoomToLayer")}
+              onClick={(e) => {
+                e.stopPropagation();
+                mapControllerRef.current?.fitLayer(layer);
+              }}
+            >
+              {t("layers.zoomTo")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`h-7 px-2 text-[11.5px] ${
+                identifyActive
+                  ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                  : ""
+              }`}
+              title={identifyLabel}
+              disabled={!canIdentify || geometryEditActive}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!canIdentify) return;
+                selectLayer(layer.id);
+                setIdentifyLayer(identifyActive ? null : layer.id);
+              }}
+            >
+              {t("layers.identifyShort")}
+            </Button>
+            {onOpenStylePanel && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[11.5px]"
+                title={t("layers.openStylePanel")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  selectLayer(layer.id);
+                  onOpenStylePanel();
+                }}
+              >
+                {t("layers.styleShort")}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11.5px]"
+              title={t("layers.metadata")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenMetadata(layer);
+              }}
+            >
+              {t("layers.metadata")}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

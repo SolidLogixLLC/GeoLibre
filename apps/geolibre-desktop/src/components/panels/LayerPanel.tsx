@@ -133,6 +133,20 @@ export function LayerPanel({
     (s) => activeInterfaceProfile(s.desktopSettings.uiProfile) === "beginner",
   );
   const uiProfile = useDesktopSettingsStore((s) => s.desktopSettings.uiProfile);
+  const compactLayerCards = useDesktopSettingsStore(
+    (s) => s.desktopSettings.layout.compactLayerCards,
+  );
+  // Which compact layer cards are expanded. Unused (and ignored by every
+  // row) when the setting is off, so it never needs resetting on toggle.
+  const [expandedLayerIds, setExpandedLayerIds] = useState<Set<string>>(() => new Set());
+  const toggleLayerExpanded = useCallback((layerId: string) => {
+    setExpandedLayerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(layerId)) next.delete(layerId);
+      else next.add(layerId);
+      return next;
+    });
+  }, []);
   // Same visibility rules the Add Data menu applies (profile, Mac App Store,
   // and the mobile-only postgres rule); the user agent is stable for the
   // session, so evaluate it once.
@@ -410,6 +424,8 @@ export function LayerPanel({
         rename={rename}
         onDragOver={drag.handleGroupHeaderDragOver}
         onDrop={drag.handleGroupHeaderDrop}
+        compact={compactLayerCards}
+        memberCount={layers.filter((l) => l.groupId === group.id).length}
       />
     );
   };
@@ -439,6 +455,7 @@ export function LayerPanel({
     onOpenRasterStylePanel,
     onOpenStylePanel,
     onOpenRasterSubset,
+    onRequestRemove: setLayerPendingRemoval,
   };
 
   if (isCollapsed) {
@@ -565,6 +582,9 @@ export function LayerPanel({
                     onOpenMetadata={metadata.openMetadata}
                     onRequestRemove={setLayerPendingRemoval}
                     menu={menu}
+                    compact={compactLayerCards}
+                    expanded={!compactLayerCards || expandedLayerIds.has(layer.id)}
+                    onToggleExpanded={toggleLayerExpanded}
                   />
                 )}
               </Fragment>
