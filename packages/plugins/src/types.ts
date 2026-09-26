@@ -115,6 +115,25 @@ export interface GeoLibreGeoJsonLayerOptions {
   attribution?: string;
 }
 
+/**
+ * Options for {@link GeoLibreAppAPI.addVectorTileLayer}: a store-backed native
+ * `"vector-tiles"` layer, styled and interacted with exactly like a GeoJSON
+ * layer, but rendered from server-side MVT tiles instead of loaded features.
+ */
+export interface GeoLibreVectorTileLayerOptions {
+  /** Absolute XYZ tile URL templates ({z}/{x}/{y}). */
+  tiles: string[];
+  /** MVT source-layer name inside each tile. */
+  sourceLayer: string;
+  minzoom?: number;
+  maxzoom?: number;
+  /** [minLon, minLat, maxLon, maxLat] */
+  bounds?: [number, number, number, number];
+  /** HTML attribution shown in MapLibre's attribution control. */
+  attribution?: string;
+  geometryType?: "point" | "line" | "polygon";
+}
+
 /** One property displayed by a plugin-registered hover tooltip. */
 export interface GeoLibreFeatureTooltipField {
   field: string;
@@ -433,6 +452,20 @@ export interface GeoLibreAppAPI {
     sourcePath?: string,
     options?: GeoLibreGeoJsonLayerOptions,
   ) => string;
+  /**
+   * Add a store-backed native vector-tile (MVT) layer and return its layer id.
+   * Styled with {@link setLayerStyle} and interacted with through
+   * {@link registerFeatureInteraction} exactly like a layer added with
+   * {@link addGeoJsonLayer}, but rendered by GeoLibre's own `"vector-tiles"`
+   * sync directly from the tile server rather than from loaded features — so
+   * no feature data ever passes through the plugin's JS heap. Hover
+   * highlighting and click feature-state need each MVT feature to carry an
+   * `id` (the tile's own feature id, not merely an id-valued property); a
+   * tileset with no feature ids still renders and styles correctly but cannot
+   * be hovered/highlighted per feature. Typed optional for
+   * forward-compatibility, so call it with optional chaining.
+   */
+  addVectorTileLayer?: (name: string, options: GeoLibreVectorTileLayerOptions) => string;
   listLayers?: () => GeoLibreLayerSummary[];
   getLayerFeatures?: (layerId: string) => Feature<Geometry | null>[];
   getSelectedFeatures?: () => Feature<Geometry | null>[];

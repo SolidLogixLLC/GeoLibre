@@ -59,6 +59,14 @@ export function textLayerId(layerId: string): string {
   return `layer-${layerId}-text`;
 }
 
+// The vector-tile id builders (including `vectorTileStyleLayerIds`, used by
+// `registerFeatureInteraction` to find a "vector-tiles" layer's hoverable
+// native layers) are pure and MapLibre-free like everything above, so they
+// live in their own module and are re-exported here for the same reason:
+// consumers that only need the id scheme should not have to import
+// `layer-sync` (and so MapLibre) just to reach them.
+export * from "./vector-tile-layer-ids";
+
 export function markerLayerId(layerId: string): string {
   return `layer-${layerId}-marker`;
 }

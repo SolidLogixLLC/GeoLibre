@@ -1,5 +1,10 @@
 import { useAppStore } from "@geolibre/core";
-import { circleLayerId, fillLayerId, lineLayerId } from "@geolibre/map/style-layer-ids";
+import {
+  circleLayerId,
+  fillLayerId,
+  lineLayerId,
+  vectorTileStyleLayerIds,
+} from "@geolibre/map/style-layer-ids";
 import type { GeoLibreFeatureInteractionOptions } from "@geolibre/plugins";
 import type {
   DataDrivenPropertyValueSpecification,
@@ -159,6 +164,9 @@ export function registerFeatureInteraction(
       return [fillLayerId(layer.id), lineLayerId(layer.id), circleLayerId(layer.id)].filter(
         (id) => Boolean(map.getLayer(id)),
       );
+    }
+    if (layer?.type === "vector-tiles") {
+      return vectorTileStyleLayerIds(layer).filter((id) => Boolean(map.getLayer(id)));
     }
     return [];
   };

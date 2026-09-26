@@ -1,5 +1,6 @@
 import {
   clearExternalNativePaintBridge,
+  DEFAULT_LAYER_STYLE,
   setExternalNativePaintBridge,
   useAppStore,
 } from "@geolibre/core";
@@ -114,6 +115,7 @@ import type {
   GeoLibreGeoJsonLayerOptions,
   GeoLibreMapControlPosition,
   GeoLibreTileLayerOptions,
+  GeoLibreVectorTileLayerOptions,
   GeoLibreWmsLayerOptions,
   GeoLibreZarrLayerOptions,
   GeoLibreZarrQueryGeometry,
@@ -897,6 +899,38 @@ export function createAppAPI(mapControllerRef?: RefObject<MapEngine | null>) {
         null,
         options?.attribution,
       );
+      return id;
+    },
+    // Unlike addTileLayer/addWmsLayer (delegated to a store method that owns id
+    // generation), this builds the GeoLibreLayer directly and adds it through
+    // store.addLayer -- there is no store.addVectorTileLayer, and this layer is
+    // not control-managed, so it needs neither externalNativeLayer nor
+    // customLayerType metadata. GeoLibre's own sync (syncVectorTileLayer) reads
+    // the source-layer name from source.sourceLayer and renders it like any
+    // other "vector-tiles" layer.
+    addVectorTileLayer: (name: string, options: GeoLibreVectorTileLayerOptions) => {
+      const id = crypto.randomUUID();
+      const layer: GeoLibreLayer = {
+        id,
+        name,
+        type: "vector-tiles",
+        source: {
+          type: "vector",
+          tiles: options.tiles,
+          sourceLayer: options.sourceLayer,
+          ...(options.minzoom !== undefined ? { minzoom: options.minzoom } : {}),
+          ...(options.maxzoom !== undefined ? { maxzoom: options.maxzoom } : {}),
+          ...(options.bounds !== undefined ? { bounds: options.bounds } : {}),
+          ...(options.attribution !== undefined ? { attribution: options.attribution } : {}),
+        },
+        visible: true,
+        opacity: 1,
+        style: { ...DEFAULT_LAYER_STYLE },
+        metadata: {
+          ...(options.geometryType !== undefined ? { geometryType: options.geometryType } : {}),
+        },
+      };
+      useAppStore.getState().addLayer(layer);
       return id;
     },
     ...createPluginLayerQueries(),
