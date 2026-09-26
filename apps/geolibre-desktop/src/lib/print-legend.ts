@@ -221,7 +221,7 @@ export function legendSwatchesForLayer(
       ]);
     }
     const primary = pointMarkerSwatch(layer.style) ?? {
-      color: styleValue(layer.style, "fillColor"),
+      color: singleVectorSwatchColor(layer),
     };
     return withGenerator([primary, ...diagrams]);
   }
@@ -726,6 +726,18 @@ function legendGeometryKind(layer: GeoLibreLayer): "point" | "line" | "polygon" 
  */
 function layerSupportsProportionalLegend(layer: GeoLibreLayer): boolean {
   return legendGeometryKind(layer) !== "polygon";
+}
+
+/**
+ * Primary color for a single-symbol vector swatch, aligned with geometry:
+ * lines prefer stroke color, polygons/points prefer fill color. Reuses
+ * {@link legendGeometryKind} rather than re-sniffing feature geometry.
+ */
+export function singleVectorSwatchColor(layer: GeoLibreLayer): string {
+  if (legendGeometryKind(layer) === "line") {
+    return styleValue(layer.style, "strokeColor") || styleValue(layer.style, "fillColor") || NEUTRAL_SWATCH;
+  }
+  return styleValue(layer.style, "fillColor") || styleValue(layer.style, "strokeColor") || NEUTRAL_SWATCH;
 }
 
 function lerp(from: number, to: number, ratio: number): number {
