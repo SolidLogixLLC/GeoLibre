@@ -329,6 +329,11 @@ export const createLayersSlice: SliceCreator<LayersSlice> = (set, get) => ({
   setLayerStyle: (id, style) =>
     set((s) => ({
       layers: s.layers.map((l) => (l.id === id ? { ...l, style: { ...l.style, ...style } } : l)),
+      // Keep legend observers in lockstep with style edits: some runtime
+      // paths patch layer symbology without replacing every nested object,
+      // so nudging the legend reference ensures auto-legend derivation
+      // recomputes against the latest effective style.
+      legend: { ...s.legend },
       isDirty: true,
     })),
 
