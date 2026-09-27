@@ -27,6 +27,20 @@ function setCompactLayerCards(value: boolean): void {
   }));
 }
 
+/**
+ * "Layer groups as section headers" defaults to on in this distribution. Tests below
+ * that exercise the pre-change card header turn it off explicitly, so they
+ * still pass once the default flips (upstream defaults it to off).
+ */
+function setLayerGroupSections(value: boolean): void {
+  useDesktopSettingsStore.setState((state) => ({
+    desktopSettings: {
+      ...state.desktopSettings,
+      layout: { ...state.desktopSettings.layout, layerGroupSections: value },
+    },
+  }));
+}
+
 // Loaded after the harness so its CSS imports and Vite globals are handled.
 const { LayerPanel } = await import("../apps/geolibre-desktop/src/components/panels/LayerPanel");
 
@@ -326,5 +340,58 @@ describe("LayerPanel compact layer cards", () => {
       within(header).queryByTitle("Double-click to enter an exact value"),
       null,
     );
+  });
+});
+
+describe("LayerPanel layer group section headers", () => {
+  it("renders a group header as a section, not a card, when the setting is on", () => {
+    setLayerGroupSections(true);
+    act(() => {
+      useAppStore.getState().addLayerGroup("Faults", []);
+    });
+    renderLayerPanel();
+
+    const header = screen.getByTestId("layer-group-header");
+    assert.equal(header.getAttribute("data-group-style"), "section");
+    assert.equal(header.className.includes("rounded-md"), false);
+    // No all-sides `border` utility (only the section's `border-b`).
+    assert.equal(/(^|\s)border(\s|$)/.test(header.className), false);
+    assert.ok(header.className.includes("border-b"));
+  });
+
+  it("keeps today's card header byte-identical when the setting is off", () => {
+    setLayerGroupSections(false);
+    act(() => {
+      useAppStore.getState().addLayerGroup("Faults", []);
+    });
+    renderLayerPanel();
+
+    const header = screen.getByTestId("layer-group-header");
+    assert.equal(header.getAttribute("data-group-style"), "card");
+    assert.equal(
+      header.className,
+      "w-full min-w-0 max-w-full rounded-md border p-2 transition-colors border-border bg-muted/30 hover:border-muted-foreground/40",
+    );
+  });
+
+  it("still highlights the drop target while dragging over a section header", () => {
+    setLayerGroupSections(true);
+    act(() => {
+      useAppStore.getState().addLayerGroup("Faults", []);
+    });
+    useAppStore.setState({
+      layers: [geojsonLayer({ id: "parks", name: "Parks" })],
+    });
+    renderLayerPanel();
+
+    const grip = screen.getByRole("button", { name: "Drag Parks to reorder" });
+    const header = screen.getByTestId("layer-group-header");
+    const dataTransfer = { setData: () => {}, effectAllowed: "", dropEffect: "" };
+    fireEvent.dragStart(grip, { dataTransfer });
+    fireEvent.dragOver(header, { dataTransfer });
+
+    assert.equal(header.getAttribute("data-group-style"), "section");
+    assert.ok(header.className.includes("border-primary"));
+    assert.ok(header.className.includes("bg-primary/10"));
   });
 });

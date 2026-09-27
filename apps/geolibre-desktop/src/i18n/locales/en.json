@@ -2328,6 +2328,8 @@
       "layerPanel": "Layer panel",
       "compactLayerCards": "Compact layer cards",
       "compactLayerCardsHint": "Collapse each layer card to one row; the opacity slider and action buttons show only for the expanded card.",
+      "layerGroupSections": "Layer groups as section headers",
+      "layerGroupSectionsHint": "Show a layer group as a plain section heading with a divider instead of a bordered card.",
       "urlParamsNote": "URL layout parameters still apply when present in shared viewer links."
     },
     "appearance": {

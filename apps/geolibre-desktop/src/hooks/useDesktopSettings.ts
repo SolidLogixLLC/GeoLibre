@@ -145,6 +145,11 @@ export interface DesktopLayoutSettings {
    * Default true in this fork; upstream has no equivalent setting.
    */
   compactLayerCards: boolean;
+  /**
+   * Render a layer group's header as a section divider (no card border,
+   * radius or background tint) instead of a card. Layer rows are unaffected.
+   */
+  layerGroupSections: boolean;
 }
 
 /** Experience-level presets offered by the onboarding wizard and Settings. */
@@ -197,6 +202,8 @@ export const DEFAULT_DESKTOP_LAYOUT_SETTINGS: DesktopLayoutSettings = {
   stylePanelVisible: true,
   toolbarLabels: true,
   compactLayerCards: true,
+  // Default on in this distribution; upstream defaults it to false.
+  layerGroupSections: true,
 };
 
 export const DEFAULT_UI_PROFILE_SETTINGS: UiProfileSettings = {
@@ -518,6 +525,10 @@ function normalizeDesktopLayoutSettings(layout: unknown): DesktopLayoutSettings 
       typeof candidate.compactLayerCards === "boolean"
         ? candidate.compactLayerCards
         : DEFAULT_DESKTOP_LAYOUT_SETTINGS.compactLayerCards,
+    layerGroupSections:
+      typeof candidate.layerGroupSections === "boolean"
+        ? candidate.layerGroupSections
+        : DEFAULT_DESKTOP_LAYOUT_SETTINGS.layerGroupSections,
   };
 }
 

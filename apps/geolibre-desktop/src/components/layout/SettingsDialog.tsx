@@ -64,6 +64,7 @@ import {
   Plus,
   RotateCcw,
   Rows3,
+  SeparatorHorizontal,
   Settings,
   SlidersHorizontal,
   Sun,
@@ -2336,6 +2337,25 @@ export function SettingsDialog({
                         <span className="block">{t("settings.layout.compactLayerCards")}</span>
                         <span className="block text-xs text-muted-foreground">
                           {t("settings.layout.compactLayerCardsHint")}
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
+                      <input
+                        className="h-4 w-4"
+                        type="checkbox"
+                        checked={draftDesktopSettings.layout.layerGroupSections}
+                        onChange={(event) =>
+                          updateDraftLayoutSettings({
+                            layerGroupSections: event.target.checked,
+                          })
+                        }
+                      />
+                      <SeparatorHorizontal className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        <span className="block">{t("settings.layout.layerGroupSections")}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {t("settings.layout.layerGroupSectionsHint")}
                         </span>
                       </span>
                     </label>

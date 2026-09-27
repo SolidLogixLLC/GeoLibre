@@ -65,6 +65,11 @@ interface LayerGroupHeaderProps {
   compact: boolean;
   /** Number of layers directly in this group, shown as a count badge when compact. */
   memberCount: number;
+  /**
+   * Whether the header renders as a section divider (no card border, radius
+   * or background tint, plus a bottom rule) instead of a card.
+   */
+  sectionStyle: boolean;
 }
 
 /** A group (folder) header row in the layer list, with its actions menu. */
@@ -81,6 +86,7 @@ export function LayerGroupHeader({
   onDrop,
   compact,
   memberCount,
+  sectionStyle,
 }: LayerGroupHeaderProps) {
   const { i18n, t } = useTranslation();
   const removeLayerGroup = useAppStore((s) => s.removeLayerGroup);
@@ -98,16 +104,25 @@ export function LayerGroupHeader({
     commitGroupRename,
     cancelGroupRename,
   } = rename;
+  const headerClassName = sectionStyle
+    ? `w-full min-w-0 max-w-full border-b pt-3 pb-1 px-1 transition-colors ${
+        isDropTarget ? "border-primary bg-primary/10" : "border-border"
+      }`
+    : `w-full min-w-0 max-w-full rounded-md border p-2 transition-colors ${
+        isDropTarget
+          ? "border-primary bg-primary/10"
+          : "border-border bg-muted/30 hover:border-muted-foreground/40"
+      }`;
+  const groupNameClassName = sectionStyle
+    ? "min-w-0 flex-1 truncate text-xs font-semibold tracking-[0.04em] text-muted-foreground"
+    : "min-w-0 flex-1 truncate text-sm font-semibold";
   return (
     <div
       data-group-header=""
       data-testid="layer-group-header"
       data-group-name={group.name}
-      className={`w-full min-w-0 max-w-full rounded-md border p-2 transition-colors ${
-        isDropTarget
-          ? "border-primary bg-primary/10"
-          : "border-border bg-muted/30 hover:border-muted-foreground/40"
-      }`}
+      data-group-style={sectionStyle ? "section" : "card"}
+      className={headerClassName}
       style={{
         marginInlineStart: `${depth}rem`,
         width: `calc(100% - ${depth}rem)`,
@@ -178,7 +193,7 @@ export function LayerGroupHeader({
           />
         ) : (
           <span
-            className="min-w-0 flex-1 truncate text-sm font-semibold"
+            className={groupNameClassName}
             title={t("layers.doubleClickToRename")}
             onDoubleClick={(e: ReactMouseEvent) => {
               e.stopPropagation();

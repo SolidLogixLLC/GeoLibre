@@ -42,3 +42,29 @@ describe("dockable panel layout settings", () => {
     assert.equal(layout.commentsPanelVisible, true);
   });
 });
+
+// "Layer groups as section headers" defaults differ by distribution (on here,
+// off upstream); the normalizer must still fall back to whatever the current
+// default is when a stored settings object predates the key.
+describe("layer group section headers setting", () => {
+  it("normalizes a stored settings object without the key to the current default", () => {
+    const layout = normalizeDesktopSettings({
+      layout: { layerPanelVisible: false },
+    }).layout;
+    assert.equal(layout.layerGroupSections, DEFAULT_DESKTOP_LAYOUT_SETTINGS.layerGroupSections);
+  });
+
+  it("keeps an explicit value across a load", () => {
+    const onLayout = normalizeDesktopSettings({ layout: { layerGroupSections: true } }).layout;
+    assert.equal(onLayout.layerGroupSections, true);
+    const offLayout = normalizeDesktopSettings({ layout: { layerGroupSections: false } }).layout;
+    assert.equal(offLayout.layerGroupSections, false);
+  });
+
+  it("rejects a non-boolean value from tampered storage", () => {
+    const layout = normalizeDesktopSettings({
+      layout: { layerGroupSections: "yes" },
+    }).layout;
+    assert.equal(layout.layerGroupSections, DEFAULT_DESKTOP_LAYOUT_SETTINGS.layerGroupSections);
+  });
+});

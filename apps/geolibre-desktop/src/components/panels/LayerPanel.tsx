@@ -136,6 +136,9 @@ export function LayerPanel({
   const compactLayerCards = useDesktopSettingsStore(
     (s) => s.desktopSettings.layout.compactLayerCards,
   );
+  const layerGroupSections = useDesktopSettingsStore(
+    (s) => s.desktopSettings.layout.layerGroupSections,
+  );
   // Which compact layer cards are expanded. Unused (and ignored by every
   // row) when the setting is off, so it never needs resetting on toggle.
   const [expandedLayerIds, setExpandedLayerIds] = useState<Set<string>>(() => new Set());
@@ -426,6 +429,7 @@ export function LayerPanel({
         onDrop={drag.handleGroupHeaderDrop}
         compact={compactLayerCards}
         memberCount={layers.filter((l) => l.groupId === group.id).length}
+        sectionStyle={layerGroupSections}
       />
     );
   };
