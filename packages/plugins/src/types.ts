@@ -499,6 +499,12 @@ export interface GeoLibreAppAPI {
   listLayers?: () => GeoLibreLayerSummary[];
   getLayerFeatures?: (layerId: string) => Feature<Geometry | null>[];
   /**
+   * Number of features a layer currently holds in memory (0 for a layer with
+   * none, such as a reopened `transient` GeoJSON layer), without cloning them.
+   * Throws for an unknown layer id, like {@link getLayerFeatures}.
+   */
+  getLayerFeatureCount?: (layerId: string) => number;
+  /**
    * Replace a GeoJSON layer's features in place, keeping its id, name, style,
    * visibility, order and metadata (including a `transient` layer's
    * `transientGeojson` flag). Returns false for an unknown layer id or a

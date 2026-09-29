@@ -84,6 +84,8 @@ describe("external plugin query API", () => {
         geometry: { type: "Point", coordinates: [101.7, 3.1] },
       },
     ]);
+    assert.equal(app.getLayerFeatureCount(layerId), 1);
+    assert.throws(() => app.getLayerFeatureCount("missing"), /No layer with id/);
     app.getSelectedFeatures();
     app.getSelectedLayerId();
     app.getDrawnFeatures();
