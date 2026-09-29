@@ -968,6 +968,12 @@ export function createAppAPI(mapControllerRef?: RefObject<MapEngine | null>) {
       );
       return id;
     },
+    // Delegates to the store's existing updateLayer patch path (guarded by
+    // setGeoJsonLayerData itself), so a replacement keeps the layer's id,
+    // name, style, visibility, order and metadata -- including a transient
+    // layer's `transientGeojson` flag.
+    setGeoJsonLayerData: (layerId: string, data: GeoJSON.FeatureCollection) =>
+      store.setGeoJsonLayerData(layerId, data),
     // Unlike addTileLayer/addWmsLayer (delegated to a store method that owns id
     // generation), this builds the GeoLibreLayer directly and adds it through
     // store.addLayer -- there is no store.addVectorTileLayer, and this layer is

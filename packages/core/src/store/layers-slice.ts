@@ -141,6 +141,14 @@ export interface LayersSlice {
     metadata?: Record<string, unknown>,
   ) => string;
   /**
+   * Replace a GeoJSON layer's features in place through the existing
+   * `updateLayer` patch path, keeping its id, name, style, visibility, order
+   * and metadata (including `transientGeojson`). Returns false for an unknown
+   * layer id or a layer whose `type` is not `"geojson"`, and does not touch
+   * the store in either case.
+   */
+  setGeoJsonLayerData: (id: string, geojson: FeatureCollection) => boolean;
+  /**
    * Add a georeferenced image overlay (a MapLibre `image` source rendered as a
    * raster layer) from an image URL and its four corner coordinates, and return
    * its id. Used for KML/KMZ `<GroundOverlay>` imports; the layer persists and
@@ -454,6 +462,13 @@ export const createLayersSlice: SliceCreator<LayersSlice> = (set, get) => ({
     };
     get().addLayer(layer, beforeLayerId);
     return id;
+  },
+
+  setGeoJsonLayerData: (id, geojson) => {
+    const layer = get().layers.find((item) => item.id === id);
+    if (!layer || layer.type !== "geojson") return false;
+    get().updateLayer(id, { geojson });
+    return true;
   },
 
   addImageOverlayLayer: (name, source, options, beforeLayerId = null) => {

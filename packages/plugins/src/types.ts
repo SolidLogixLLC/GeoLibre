@@ -498,6 +498,14 @@ export interface GeoLibreAppAPI {
   addVectorTileLayer?: (name: string, options: GeoLibreVectorTileLayerOptions) => string;
   listLayers?: () => GeoLibreLayerSummary[];
   getLayerFeatures?: (layerId: string) => Feature<Geometry | null>[];
+  /**
+   * Replace a GeoJSON layer's features in place, keeping its id, name, style,
+   * visibility, order and metadata (including a `transient` layer's
+   * `transientGeojson` flag). Returns false for an unknown layer id or a
+   * layer that is not a GeoJSON layer, otherwise true. Optional, like
+   * {@link getLayerFeatures}; call it with optional chaining.
+   */
+  setGeoJsonLayerData?: (layerId: string, data: FeatureCollection) => boolean;
   getSelectedFeatures?: () => Feature<Geometry | null>[];
   getSelectedLayerId?: () => string | null;
   readRasterWindow?: (
