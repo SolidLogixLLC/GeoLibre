@@ -3,12 +3,14 @@ import {
   getAssistantToolOwnerScope,
   unregisterAssistantToolsByOwner,
 } from "./assistant-tool-registry";
+import { unregisterSearchProvidersByOwner } from "./search-provider-registry";
 import type { MapRendererKind, ProjectPluginState } from "@geolibre/core";
 import type { IControl } from "maplibre-gl";
 import type {
   GeoLibreAppAPI,
   GeoLibreMapControlPosition,
   GeoLibrePlugin,
+  GeoLibreSearchProvider,
   GeoLibreToolbarMenu,
 } from "./types";
 
@@ -119,6 +121,7 @@ export class PluginManager {
       this.active.delete(id);
     }
     unregisterAssistantToolsByOwner(id);
+    unregisterSearchProvidersByOwner(id);
     this.plugins.delete(id);
     this.deferredActive.delete(id);
     this.defaultActive.delete(id);
@@ -248,6 +251,7 @@ export class PluginManager {
       activated = plugin.activate(scopedApp);
     } catch (error) {
       unregisterAssistantToolsByOwner(id);
+      unregisterSearchProvidersByOwner(id);
       restoreDisplaced();
       throw error;
     } finally {
@@ -255,6 +259,7 @@ export class PluginManager {
     }
     if (activated === false) {
       unregisterAssistantToolsByOwner(id);
+      unregisterSearchProvidersByOwner(id);
       restoreDisplaced();
       return false;
     }
@@ -341,6 +346,7 @@ export class PluginManager {
       }
     }
     unregisterAssistantToolsByOwner(id);
+    unregisterSearchProvidersByOwner(id);
     this.notify();
     return true;
   }
@@ -359,6 +365,7 @@ export class PluginManager {
       plugin.deactivate(this.scopeAppToPlugin(app, id));
     } finally {
       unregisterAssistantToolsByOwner(id);
+      unregisterSearchProvidersByOwner(id);
       this.active.delete(id);
       this.nextActivationGeneration(id);
       this.activationResults.delete(id);
@@ -639,12 +646,14 @@ export class PluginManager {
         activated = plugin.activate(scopedApp);
       } catch (error) {
         unregisterAssistantToolsByOwner(id);
+        unregisterSearchProvidersByOwner(id);
         throw error;
       } finally {
         this.activating.delete(id);
       }
       if (activated === false) {
         unregisterAssistantToolsByOwner(id);
+        unregisterSearchProvidersByOwner(id);
         continue;
       }
       this.active.add(id);
@@ -736,6 +745,7 @@ function scopeAppToPlugin(
 ): GeoLibreAppAPI {
   const { onControlAdded, onRightPanelOpened, assistantTools = false, canAddControl } = options;
   const register = app.registerToolbarMenu;
+  const registerSearchProvider = app.registerSearchProvider;
   const registerRightPanel = app.registerRightPanel;
   const activatePlugin = app.activatePlugin;
   const deactivatePlugin = app.deactivatePlugin;
@@ -746,6 +756,7 @@ function scopeAppToPlugin(
     !canAddControl &&
     !hasAssistantRegistration &&
     !register &&
+    !registerSearchProvider &&
     !onControlAdded &&
     !onRightPanelOpened &&
     !activatePlugin &&
@@ -789,6 +800,18 @@ function scopeAppToPlugin(
     ) => () => void;
     scoped.registerToolbarMenu = (menu) =>
       canAddControl?.() === false ? () => {} : registerWithOwner(menu, pluginId);
+  }
+
+  if (registerSearchProvider) {
+    // Same host-side owner injection as the toolbar menu above: the concrete
+    // impl takes an owner id that the manager uses to drop the plugin's
+    // providers when it is deactivated.
+    const registerWithOwner = registerSearchProvider as (
+      provider: GeoLibreSearchProvider,
+      ownerPluginId: string,
+    ) => () => void;
+    scoped.registerSearchProvider = (provider) =>
+      canAddControl?.() === false ? () => {} : registerWithOwner(provider, pluginId);
   }
 
   if (registerRightPanel) {

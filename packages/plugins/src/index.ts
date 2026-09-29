@@ -43,6 +43,16 @@ export {
   type ToolbarMenuEntry,
 } from "./toolbar-menu-registry";
 export {
+  registerSearchProvider,
+  unregisterSearchProvider,
+  unregisterSearchProvidersByOwner,
+  listSearchProviders,
+  getSearchProvidersSnapshot,
+  subscribeSearchProviders,
+  type SearchProvidersSnapshot,
+  type SearchProviderEntry,
+} from "./search-provider-registry";
+export {
   registerFloatingPanel,
   unregisterFloatingPanel,
   openFloatingPanel,

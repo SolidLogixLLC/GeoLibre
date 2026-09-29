@@ -248,6 +248,8 @@ export interface GeoLibreAppAPI {
   // Top toolbar menus (see "Toolbar menus" below).
   registerToolbarMenu?: (menu: GeoLibreToolbarMenu) => () => void;
   unregisterToolbarMenu?: (id: string) => void;
+  // Layer panel search results (see "Search providers" below).
+  registerSearchProvider?: (provider: GeoLibreSearchProvider) => () => void;
   // Floating panels (see "Floating panels" below).
   registerFloatingPanel?: (panel: GeoLibreFloatingPanelRegistration) => () => void;
   unregisterFloatingPanel?: (id: string) => void;
@@ -1106,6 +1108,41 @@ app.registerToolbarMenu?.({
 ```
 
 The host re-reads every label each time it renders the menu tree, and it re-renders on a language change, so a getter follows the app language without your plugin re-registering its menu. A plain string is frozen at registration time. A getter that throws or returns nothing usable degrades to the item's id path and warns once, so a broken label cannot make the menu disappear.
+
+## Search providers
+
+A plugin can add its own results to the search box at the foot of the Layers panel. Each provider appears as a titled group between the matches from the loaded layers and the geocoded places. Register the provider in `activate` and unregister it in `deactivate`:
+
+```typescript
+const unregister = app.registerSearchProvider?.({
+  id: "my-plugin-sites",
+  title: "Sites",
+  search: (query, { signal }) =>
+    siteIndex.find(query).map((site) => ({
+      id: site.id,
+      label: site.name,
+      detail: `${site.type} · ${site.state}`,
+      lng: site.lng,
+      lat: site.lat,
+      bbox: site.bbox, // optional: fit the map to this extent
+    })),
+  onSelect: (result) => showSiteDetails(result.id),
+});
+```
+
+`search` receives the trimmed query and returns the matching results, either directly or as a promise. A result needs an `id` (unique within the provider), a `label`, and a `lng`/`lat` in degrees. It may also carry a `detail` line shown under the label, a `bbox` (`[west, south, east, north]`) to fit the map to, and a `zoom` to fly to when there is no `bbox`.
+
+When the user selects a result the host moves the map first: it drops the same marker a place result gets, then fits to the `bbox` or, without one, flies to the point at `zoom` (by default the larger of the current zoom and 12). Then it calls `onSelect`, and the result's label fills the search box.
+
+Providers are queried together after a short typing pause, and the host does not wait long for them:
+
+- A provider that has not answered within 250 ms is left out of that search, as is one that throws or rejects. Neither affects the other groups or the geocoded places, so `search` should be quick: search an index held in memory rather than calling the network.
+- `signal` aborts when the query changes or the search box is cleared, so a slow `search` can stop early.
+- The host shows at most 5 results per provider. `maxResults` can lower that limit but not raise it.
+- A provider is asked only about queries of at least `minQueryLength` characters (default 2). The search box itself starts searching at 2 characters, so a smaller value has no effect.
+- A query that reads as a coordinate or an H3 cell keeps its own result, and providers are not queried for it.
+
+`title` accepts a getter function as well as a plain string, so a group heading can follow the app language the way toolbar labels do. Re-registering the same `id` replaces the provider. The host also drops a plugin's providers when the plugin is deactivated. With no provider registered the search box is unchanged. The method is optional, so call it with optional chaining to stay compatible with hosts that have no search box.
 
 ## Following the app language
 
