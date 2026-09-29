@@ -112,10 +112,12 @@ export interface GeoLibreAppAPI {
     name: string,
     data: FeatureCollection,
     sourcePath?: string,
-    options?: { attribution?: string },
+    options?: { attribution?: string; transient?: boolean },
   ) => string;
   listLayers?: () => GeoLibreLayerSummary[];
   getLayerFeatures?: (layerId: string) => Feature<Geometry | null>[];
+  getLayerFeatureCount?: (layerId: string) => number;
+  setGeoJsonLayerData?: (layerId: string, data: FeatureCollection) => boolean;
   getSelectedFeatures?: () => Feature<Geometry | null>[];
   getSelectedLayerId?: () => string | null;
   // Sample a raster layer over a geographic window. See "Sampling raster
@@ -556,6 +558,17 @@ matched using their zero-based array index converted to a string. An empty
 selection returns an empty array. `getLayerFeatures` throws when the layer id is
 unknown and returns an empty array for a layer that has no GeoJSON features.
 
+`getLayerFeatureCount(layerId)` returns how many features a layer currently
+holds in memory (0 for a layer with none) without cloning them, so a plugin
+can cheaply test a large layer for emptiness, for example on every layers
+notification. Like `getLayerFeatures`, it throws when the layer id is unknown.
+
+```typescript
+if (app.getLayerFeatureCount?.(layerId) === 0) {
+  // The layer holds no features yet.
+}
+```
+
 Selection subscriptions fire after the selected layer or selected feature-id
 array changes. Keep and call the returned unsubscribe function during plugin
 deactivation:
@@ -572,6 +585,43 @@ unsubscribe?.();
 These methods are a read-only query surface: calling them does not change the
 GeoLibre store. Plugins must also treat returned GeoJSON features as read-only
 and use host APIs such as `addGeoJsonLayer` when they need to add data.
+
+## Transient GeoJSON layers
+
+Pass `{ transient: true }` as the fourth argument of `addGeoJsonLayer` to add a
+GeoJSON layer whose features stay in memory but are not written to the project
+file or autosave. Use it for data the plugin rebuilds itself, such as a live
+feed or a large derived layer, where saving a copy would only bloat the
+project. Without the option, `addGeoJsonLayer` behaves as before.
+
+```typescript
+const layerId = app.addGeoJsonLayer("Live positions", features, undefined, {
+  transient: true,
+});
+```
+
+A transient layer is not saved with the project: its name, style, visibility
+and order are, but its features are not, so the layer comes back empty when the
+project is reopened and the plugin must re-add its features.
+
+## Replacing a layer's features
+
+`setGeoJsonLayerData(layerId, data)` replaces a GeoJSON layer's features in
+place. The layer keeps its id, name, style, visibility, order and metadata, so
+the Layers panel entry and any styling the user applied are unchanged. It
+returns `false`, without touching the store, for an unknown layer id or a layer
+that is not a GeoJSON layer, and `true` otherwise. The method is optional, so
+call it with optional chaining to stay compatible with older hosts.
+
+```typescript
+const updated = app.setGeoJsonLayerData?.(layerId, {
+  type: "FeatureCollection",
+  features: freshFeatures,
+});
+```
+
+This is also how a plugin supplies the features of a transient layer again
+after a project is reopened.
 
 ## Layer groups
 
