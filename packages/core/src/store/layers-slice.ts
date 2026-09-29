@@ -138,6 +138,7 @@ export interface LayersSlice {
     sourcePath?: string,
     beforeLayerId?: string | null,
     attribution?: string,
+    metadata?: Record<string, unknown>,
   ) => string;
   /**
    * Add a georeferenced image overlay (a MapLibre `image` source rendered as a
@@ -420,7 +421,7 @@ export const createLayersSlice: SliceCreator<LayersSlice> = (set, get) => ({
       return { layers: normalized, isDirty: true };
     }),
 
-  addGeoJsonLayer: (name, geojson, sourcePath, beforeLayerId = null, attribution) => {
+  addGeoJsonLayer: (name, geojson, sourcePath, beforeLayerId = null, attribution, metadata) => {
     const id = uuidv4();
     const foreignAttribution = (geojson as FeatureCollection & { attribution?: unknown })
       .attribution;
@@ -447,7 +448,7 @@ export const createLayersSlice: SliceCreator<LayersSlice> = (set, get) => ({
           simpleStyleEnabled: hasSimpleStyleProperties(geojson),
         },
       }),
-      metadata: {},
+      metadata: { ...metadata },
       geojson,
       sourcePath,
     };

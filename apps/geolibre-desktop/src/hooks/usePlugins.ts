@@ -964,6 +964,7 @@ export function createAppAPI(mapControllerRef?: RefObject<MapEngine | null>) {
         sourcePath,
         null,
         options?.attribution,
+        options?.transient ? { transientGeojson: true } : undefined,
       );
       return id;
     },

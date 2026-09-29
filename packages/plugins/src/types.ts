@@ -112,6 +112,12 @@ export interface GeoLibreTileLayerOptions {
 export interface GeoLibreGeoJsonLayerOptions {
   /** Attribution shown in MapLibre's native attribution control. */
   attribution?: string;
+  /**
+   * When true the layer's features are kept in memory but not written to the
+   * project file or autosave; the plugin must re-supply them (for example
+   * with `setGeoJsonLayerData`) after a project is reopened.
+   */
+  transient?: boolean;
 }
 
 /**
