@@ -98,6 +98,7 @@ import {
   type DesktopSettings,
   type DesktopLayoutSettings,
   type ExperienceLevel,
+  type ProjectSettings,
   type UiProfileSettings,
   type UpdateSettings,
   type StartupSettings,
@@ -334,6 +335,7 @@ interface DraftDesktopSettings {
   uiProfile: UiProfileSettings;
   updates: UpdateSettings;
   startup: StartupSettings;
+  projects: ProjectSettings;
 }
 
 /**
@@ -426,6 +428,7 @@ function cloneDesktopSettings(
     },
     updates: { ...settings.updates },
     startup: { ...settings.startup, center: [...settings.startup.center] },
+    projects: { ...settings.projects },
   };
 }
 
@@ -1093,6 +1096,14 @@ export function SettingsDialog({
     setError(null);
   };
 
+  const updateDraftProjectSettings = (patch: Partial<ProjectSettings>) => {
+    setDraftDesktopSettings((current) => ({
+      ...current,
+      projects: { ...current.projects, ...patch },
+    }));
+    setError(null);
+  };
+
   const updateSavedLayoutSettings = (patch: Partial<DesktopLayoutSettings>) => {
     // Read the latest state synchronously so rapid successive toggles do not
     // overwrite each other with a stale render-closure snapshot.
@@ -1408,6 +1419,7 @@ export function SettingsDialog({
       uiProfile: committedUiProfile,
       updates: draftDesktopSettings.updates,
       startup: draftDesktopSettings.startup,
+      projects: draftDesktopSettings.projects,
     });
     // On Android the project behind the preference just saved is reachable only
     // until this process ends, so keep a copy the next launch can open
@@ -2356,6 +2368,32 @@ export function SettingsDialog({
                         <span className="block">{t("settings.layout.layerGroupSections")}</span>
                         <span className="block text-xs text-muted-foreground">
                           {t("settings.layout.layerGroupSectionsHint")}
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t("settings.layout.projects")}
+                    </h4>
+                    <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
+                      <input
+                        className="h-4 w-4"
+                        type="checkbox"
+                        checked={draftDesktopSettings.projects.pluginPublishableState}
+                        onChange={(event) =>
+                          updateDraftProjectSettings({
+                            pluginPublishableState: event.target.checked,
+                          })
+                        }
+                      />
+                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        <span className="block">
+                          {t("settings.layout.pluginPublishableState")}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {t("settings.layout.pluginPublishableStateHint")}
                         </span>
                       </span>
                     </label>

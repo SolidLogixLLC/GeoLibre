@@ -137,6 +137,11 @@ def _publishable_plugin_settings(settings: dict[str, Any]) -> dict[str, Any]:
     configuration gets, so a credentialed URL or a credential-named field
     inside a kept blob is scrubbed rather than trusted.
 
+    This mirrors only the static allowlist. The desktop host also honours a
+    plugin's runtime ``projectStatePublishable`` declaration (see
+    ``docs/plugin-api.md``); that registry lives in the loaded plugin code, so
+    this function does not see it and still drops such a plugin's blob.
+
     Args:
         settings: The project's ``plugins.settings`` mapping.
 

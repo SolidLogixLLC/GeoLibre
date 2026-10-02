@@ -65,6 +65,50 @@ export const PUBLISHABLE_PLUGIN_SETTINGS: Readonly<Record<string, readonly strin
   "gods-eye-view": null,
 };
 
+/**
+ * Publishable plugin settings declared at runtime by loaded plugin code (the
+ * plugin's `projectStatePublishable` field), keyed by plugin id. Never filled
+ * from a project file, so a shared project cannot widen its own allowlist.
+ * Each entry carries its own token so a disposer cannot remove a newer
+ * declaration for the same id.
+ */
+const runtimePublishablePluginSettings = new Map<
+  string,
+  { token: symbol; keys: readonly string[] | null }
+>();
+
+/**
+ * Declare a plugin's settings blob safe to keep through credential redaction:
+ * its sub-keys, or `null` for the whole blob. Returns a disposer. A static
+ * `PUBLISHABLE_PLUGIN_SETTINGS` entry for the same id always wins. The kept
+ * blob is still swept by `redactConfigurationValue`.
+ */
+export function registerPublishablePluginSettings(
+  id: string,
+  keys: readonly string[] | null,
+): () => void {
+  const token = Symbol(id);
+  runtimePublishablePluginSettings.set(id, { token, keys: keys === null ? null : [...keys] });
+  return () => {
+    if (runtimePublishablePluginSettings.get(id)?.token === token) {
+      runtimePublishablePluginSettings.delete(id);
+    }
+  };
+}
+
+/**
+ * The publishable sub-keys for a plugin id: `undefined` when nothing is
+ * declared (drop it all), `null` for the whole blob, or the allowed sub-keys.
+ * The static list wins over a runtime declaration.
+ */
+export function publishablePluginSettingsFor(id: string): readonly string[] | null | undefined {
+  if (Object.prototype.hasOwnProperty.call(PUBLISHABLE_PLUGIN_SETTINGS, id)) {
+    return PUBLISHABLE_PLUGIN_SETTINGS[id];
+  }
+  const declared = runtimePublishablePluginSettings.get(id);
+  return declared ? declared.keys : undefined;
+}
+
 export interface CredentialRedactionResult {
   project: GeoLibreProject;
   /** Stable project paths removed or rewritten by the redaction pass. */
@@ -457,9 +501,7 @@ export function redactProjectCredentials(project: GeoLibreProject): CredentialRe
     const kept: Record<string, unknown> = {};
     const dropped: Record<string, unknown> = {};
     for (const [id, value] of Object.entries(settings)) {
-      const allowed = Object.prototype.hasOwnProperty.call(PUBLISHABLE_PLUGIN_SETTINGS, id)
-        ? PUBLISHABLE_PLUGIN_SETTINGS[id]
-        : undefined;
+      const allowed = publishablePluginSettingsFor(id);
       if (allowed === undefined) {
         dropped[id] = value;
         continue;

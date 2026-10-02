@@ -1408,6 +1408,24 @@ export interface GeoLibrePlugin {
    * panel opens.
    */
   restoresPanelCollapseState?: boolean;
+  /**
+   * Declares that the plugin's `getProjectState()` blob is not a credential, so
+   * saving a project no longer asks to strip it and a shared project keeps it.
+   *
+   * Plugin settings are free-form, so by default the whole blob is dropped from
+   * a shared or "strip credentials" save. `true` keeps the whole blob; a list
+   * of keys keeps only those top-level keys of an object blob and drops the
+   * rest. Whatever is kept is still swept by the host: credential-like keys
+   * (`token`, `apiKey`, ...) are dropped and credentialed URLs are rewritten.
+   * The static host allowlist for built-in plugins takes precedence over this
+   * declaration.
+   *
+   * The declaration comes from the loaded plugin code, never from a project
+   * file, and only takes effect while the desktop setting "Let plugins mark
+   * their project settings as safe to share" (`projects.pluginPublishableState`)
+   * is on.
+   */
+  projectStatePublishable?: boolean | readonly string[];
 }
 
 export interface GeoLibreExternalPluginManifest {

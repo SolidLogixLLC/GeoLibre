@@ -3,8 +3,10 @@ import { describe, it } from "node:test";
 import {
   PROJECT_CREDENTIAL_FIELDS,
   createEmptyProject,
+  publishablePluginSettingsFor,
   redactCredentials,
   redactProjectCredentials,
+  registerPublishablePluginSettings,
   serializeProject,
 } from "@geolibre/core";
 
@@ -361,5 +363,125 @@ describe("project credential redaction", () => {
     const result = redactProjectCredentials(project);
     assert.ok(!serializeProject(result.project).includes("too-deep-secret"));
     assert.ok(result.redactedPaths.includes(`layers[0].source${".child".repeat(12)}`));
+  });
+});
+
+describe("runtime publishable plugin settings", () => {
+  function declaredProject(blob: unknown, id = "geologix-plugin") {
+    const original = createEmptyProject("Declared plugin state");
+    original.plugins = {
+      manifestUrls: [],
+      activePluginIds: [id],
+      settings: { [id]: blob },
+    };
+    return original;
+  }
+
+  it("keeps a declared plugin's settings and still sweeps credentials inside them", () => {
+    const dispose = registerPublishablePluginSettings("geologix-plugin", null);
+    try {
+      const { project, redactedPaths } = redactProjectCredentials(
+        declaredProject({
+          sites: [{ id: "s1", lat: 41.2, lon: -112.1 }],
+          token: "site-token-secret",
+          source: "https://user:pw@example.com/data?token=url-secret&site=1",
+        }),
+      );
+      const kept = project.plugins!.settings["geologix-plugin"];
+
+      assert.deepEqual(kept.sites, [{ id: "s1", lat: 41.2, lon: -112.1 }]);
+      assert.ok(!("token" in kept), "credential-named key inside a declared blob is dropped");
+      assert.ok(!serializeProject(project).includes("url-secret"));
+      assert.ok(!serializeProject(project).includes("site-token-secret"));
+      assert.ok(!serializeProject(project).includes("user:pw"));
+      assert.match(kept.source, /^https:\/\/example\.com\/data\?/);
+      assert.match(kept.source, /site=1/);
+      // The sweep is reported, so the host can still tell the user.
+      assert.ok(redactedPaths.some((path) => path.startsWith("plugins.settings")));
+    } finally {
+      dispose();
+    }
+  });
+
+  it("does not report a declared plugin's clean settings as redacted", () => {
+    const dispose = registerPublishablePluginSettings("geologix-plugin", null);
+    try {
+      const { redactedPaths } = redactProjectCredentials(
+        declaredProject({ sites: [{ id: "s1" }], activeSiteId: "s1" }),
+      );
+      assert.ok(!redactedPaths.includes("plugins.settings"));
+    } finally {
+      dispose();
+    }
+  });
+
+  it("keeps only the declared keys when a key list is declared", () => {
+    const dispose = registerPublishablePluginSettings("geologix-plugin", ["sites"]);
+    try {
+      const { project, redactedPaths } = redactProjectCredentials(
+        declaredProject({ sites: [{ id: "s1" }], notes: "free text" }),
+      );
+      assert.deepEqual(project.plugins!.settings["geologix-plugin"], { sites: [{ id: "s1" }] });
+      assert.ok(redactedPaths.includes("plugins.settings"));
+    } finally {
+      dispose();
+    }
+  });
+
+  it("drops an undeclared plugin's settings", () => {
+    const { project, redactedPaths } = redactProjectCredentials(
+      declaredProject({ sites: [{ id: "s1" }] }, "undeclared-plugin"),
+    );
+    assert.deepEqual(project.plugins!.settings, {});
+    assert.ok(redactedPaths.includes("plugins.settings"));
+  });
+
+  it("drops the settings again once the declaration is disposed", () => {
+    const dispose = registerPublishablePluginSettings("geologix-plugin", null);
+    dispose();
+    assert.equal(publishablePluginSettingsFor("geologix-plugin"), undefined);
+    const { project } = redactProjectCredentials(declaredProject({ sites: [{ id: "s1" }] }));
+    assert.deepEqual(project.plugins!.settings, {});
+  });
+
+  it("a stale disposer does not remove a newer declaration", () => {
+    const stale = registerPublishablePluginSettings("geologix-plugin", ["a"]);
+    const current = registerPublishablePluginSettings("geologix-plugin", ["b"]);
+    try {
+      stale();
+      assert.deepEqual(publishablePluginSettingsFor("geologix-plugin"), ["b"]);
+    } finally {
+      current();
+    }
+    assert.equal(publishablePluginSettingsFor("geologix-plugin"), undefined);
+  });
+
+  it("lets the static allowlist win over a narrower runtime declaration", () => {
+    const dispose = registerPublishablePluginSettings("maplibre-gl-components", ["colorbar"]);
+    try {
+      assert.deepEqual(publishablePluginSettingsFor("maplibre-gl-components"), [
+        "legend",
+        "colorbar",
+      ]);
+      const original = declaredProject(
+        { legend: { A: "#112233" }, colorbar: { min: 0 } },
+        "maplibre-gl-components",
+      );
+      const { project } = redactProjectCredentials(original);
+      assert.deepEqual(project.plugins!.settings["maplibre-gl-components"], {
+        legend: { A: "#112233" },
+        colorbar: { min: 0 },
+      });
+    } finally {
+      dispose();
+    }
+  });
+
+  it("never lets a project file declare itself publishable", () => {
+    const original = declaredProject({ sites: [{ id: "s1" }] });
+    (original.plugins as unknown as Record<string, unknown>).projectStatePublishable = true;
+    (original as unknown as Record<string, unknown>).projectStatePublishable = ["sites"];
+    const { project } = redactProjectCredentials(original);
+    assert.deepEqual(project.plugins!.settings, {});
   });
 });

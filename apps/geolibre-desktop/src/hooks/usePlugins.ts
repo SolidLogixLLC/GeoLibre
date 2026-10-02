@@ -217,6 +217,20 @@ interface TauriRuntimeWindow extends Window {
 }
 
 const manager = new PluginManager();
+// A plugin's `projectStatePublishable` declaration only counts while the
+// "plugins can mark project settings safe to share" setting is on. Toggling it
+// re-syncs the credential-redaction registry for every registered plugin.
+manager.setPublishableDeclarationPolicy(
+  () => useDesktopSettingsStore.getState().desktopSettings.projects.pluginPublishableState,
+);
+useDesktopSettingsStore.subscribe((state, previous) => {
+  if (
+    state.desktopSettings.projects.pluginPublishableState !==
+    previous.desktopSettings.projects.pluginPublishableState
+  ) {
+    manager.syncPublishableDeclarations();
+  }
+});
 setGeoLensDefaultServerUrl(readDeploymentEnvValue("VITE_GEOLENS_DEFAULT_URL"));
 manager.registerAll([
   maplibreLayerControlPlugin,
