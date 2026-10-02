@@ -10,8 +10,9 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next";
 import { buildProjectSnapshot } from "../lib/build-project-snapshot";
 import { isEmbedded } from "./embedHost";
+import { useDesktopSettingsStore } from "./useDesktopSettings";
 import { isTauri } from "../lib/is-tauri";
-import { projectChanged } from "../lib/project-broadcast-changed";
+import { projectAutosaveChanged } from "../lib/project-autosave-changed";
 import {
   addProjectSnapshot,
   deleteProjectSnapshot,
@@ -98,7 +99,11 @@ export function useProjectHistory(mapControllerRef: RefObject<MapEngine | null>)
     const unsubscribe = useAppStore.subscribe((state, previous) => {
       if (
         !state.isDirty ||
-        (!projectChanged(state, previous) && state.mapView === previous.mapView)
+        !projectAutosaveChanged(
+          state,
+          previous,
+          useDesktopSettingsStore.getState().desktopSettings.projects.pluginStateAutosave,
+        )
       ) {
         return;
       }

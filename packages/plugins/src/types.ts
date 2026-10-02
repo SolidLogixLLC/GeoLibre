@@ -708,6 +708,23 @@ export interface GeoLibreAppAPI {
    */
   deactivatePlugin?: (pluginId: string) => boolean;
   /**
+   * Tell the host that this plugin's {@link GeoLibrePlugin.getProjectState}
+   * result changed outside a toolbar toggle (for example the user added data
+   * inside the plugin's own panel). The host re-reads the plugin state into the
+   * project, marks the project unsaved and lets autosave / project history pick
+   * the change up. Without it a plugin's changes reach the project only when
+   * something else saves it, and a map rebuild can re-apply the older snapshot.
+   *
+   * Calls are coalesced (a burst becomes one refresh a fraction of a second
+   * later), so it is cheap to call on every change. It is ignored while a
+   * project is being restored (the plugin's own `applyProjectState` must never
+   * dirty the project it just loaded), when the serialized state is unchanged,
+   * and when the desktop setting "Autosave changes made inside plugins"
+   * (`projects.pluginStateAutosave`) is off. It is a no-op for a host that does
+   * not provide it, so call it as `app.notifyProjectStateChanged?.()`.
+   */
+  notifyProjectStateChanged?: () => void;
+  /**
    * Query a bounded set of features from GeoLibre's official Overture Maps
    * PMTiles integration. The host enforces tile and feature limits.
    */

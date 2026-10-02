@@ -105,6 +105,14 @@ export interface ProjectSettings {
    * is kept. Off: every plugin's settings are treated as potentially secret.
    */
   pluginPublishableState: boolean;
+  /**
+   * Treat a plugin's `app.notifyProjectStateChanged()` as a project edit: the
+   * project's plugin state is refreshed, the project is marked unsaved and the
+   * autosave/history snapshot is taken. Inert unless a plugin calls it. Off:
+   * the call is ignored and a plugin's own changes reach the project only when
+   * something else saves it.
+   */
+  pluginStateAutosave: boolean;
 }
 
 export type StartupProjectMode = "default" | "last" | "specific";
@@ -250,6 +258,7 @@ export const DEFAULT_STARTUP_SETTINGS: StartupSettings = {
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
   // Default on in this distribution; upstream defaults it to false.
   pluginPublishableState: true,
+  pluginStateAutosave: true,
 };
 
 export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
@@ -355,6 +364,10 @@ function normalizeProjectSettings(projects: unknown): ProjectSettings {
       typeof candidate.pluginPublishableState === "boolean"
         ? candidate.pluginPublishableState
         : DEFAULT_PROJECT_SETTINGS.pluginPublishableState,
+    pluginStateAutosave:
+      typeof candidate.pluginStateAutosave === "boolean"
+        ? candidate.pluginStateAutosave
+        : DEFAULT_PROJECT_SETTINGS.pluginStateAutosave,
   };
 }
 

@@ -59,6 +59,7 @@ export class PluginManager {
   private activationResults = new Map<string, Promise<boolean>>();
   private activating = new Set<string>();
   private version = 0;
+  private restoringDepth = 0;
   // Runtime declarations of publishable project state, by plugin id. Held only
   // while the injected policy allows them.
   private publishableDisposers = new Map<string, () => void>();
@@ -565,10 +566,33 @@ export class PluginManager {
     this.notify();
   }
 
+  /**
+   * True while {@link restoreProjectState} is running, including every plugin
+   * `applyProjectState` / `activate` it triggers synchronously. Hosts use it to
+   * ignore a plugin's "my project state changed" signal that is really the
+   * plugin loading the project, not the user editing it.
+   */
+  isRestoring(): boolean {
+    return this.restoringDepth > 0;
+  }
+
   restoreProjectState(
     state: ProjectPluginState | null,
     app: GeoLibreAppAPI,
     options: { resetMissingSettings?: boolean; mapReplaced?: boolean } = {},
+  ): void {
+    this.restoringDepth += 1;
+    try {
+      this.restoreProjectStateUnguarded(state, app, options);
+    } finally {
+      this.restoringDepth -= 1;
+    }
+  }
+
+  private restoreProjectStateUnguarded(
+    state: ProjectPluginState | null,
+    app: GeoLibreAppAPI,
+    options: { resetMissingSettings?: boolean; mapReplaced?: boolean },
   ): void {
     const renderer = app.getMapRenderer?.() ?? "maplibre";
     // A new map took down every live control with the old one, so reactivate

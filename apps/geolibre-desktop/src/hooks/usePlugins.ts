@@ -7,6 +7,7 @@ import {
 } from "@geolibre/core";
 import { buildProjectEgressSnapshot } from "../lib/build-project-snapshot";
 import { nativeWmsTileUrl } from "../lib/native-wms-url";
+import { createProjectStateNotifier } from "../lib/plugin-project-state-notifier";
 import {
   addRasterToMap,
   readRasterWindow,
@@ -1219,6 +1220,10 @@ export function createAppAPI(mapControllerRef?: RefObject<MapEngine | null>) {
       persistProjectPluginState(before);
       return !manager.isActive(pluginId);
     },
+    // A plugin whose getProjectState() changed outside a toolbar toggle tells
+    // the host so the project is marked unsaved and autosave picks it up. See
+    // GeoLibreAppAPI.notifyProjectStateChanged.
+    notifyProjectStateChanged: () => projectStateNotifier.notify(),
     queryOvertureFeatures,
     ...createPluginLayerGroupActions(),
     fitBounds: (bounds: [number, number, number, number]) =>
@@ -1725,6 +1730,17 @@ function projectPluginStateSnapshot() {
     manifestUrls: useAppStore.getState().projectPlugins?.manifestUrls ?? EMPTY_PLUGIN_MANIFEST_URLS,
   };
 }
+
+// Backs `app.notifyProjectStateChanged()`: one shared notifier so a burst of
+// calls from any plugin becomes a single refresh of the project's plugin state.
+const projectStateNotifier = createProjectStateNotifier({
+  isEnabled: () => useDesktopSettingsStore.getState().desktopSettings.projects.pluginStateAutosave,
+  isRestoring: () => manager.isRestoring(),
+  generation: () => useAppStore.getState().projectGeneration,
+  snapshot: projectPluginStateSnapshot,
+  stored: () => useAppStore.getState().projectPlugins,
+  commit: (next) => useAppStore.getState().setProjectPlugins(next),
+});
 
 function persistProjectPluginState(previousJson: string): void {
   const nextState = projectPluginStateSnapshot();
