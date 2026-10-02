@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { publishablePluginSettingsFor } from "@geolibre/core";
+import { isProjectLoadRestore } from "../apps/geolibre-desktop/src/lib/plugin-restore-kind";
+import {
+  DEFAULT_PROJECT_SETTINGS,
+  normalizeDesktopSettings,
+} from "../apps/geolibre-desktop/src/hooks/useDesktopSettings";
 import { PluginManager } from "../packages/plugins/src/plugin-manager";
 import {
   __resetToolbarMenuRegistryForTests,
@@ -1631,5 +1636,123 @@ describe("PluginManager publishable project state", () => {
     assert.equal(publishablePluginSettingsFor(id), null);
     manager.unregister(id, app);
     assert.equal(publishablePluginSettingsFor(id), undefined);
+  });
+});
+
+describe("PluginManager reset of absent project state on open", () => {
+  const withoutSettings = {
+    manifestUrls: [],
+    activePluginIds: [],
+    mapControlPositions: {},
+    settings: {},
+  };
+
+  function recordingPlugin(id: string, calls: unknown[][], patch: Partial<GeoLibrePlugin> = {}) {
+    return testPlugin({
+      id,
+      applyProjectState: (_app, state) => {
+        calls.push([id, state]);
+      },
+      ...patch,
+    });
+  }
+
+  it("resets an opted-in plugin on a project load without its settings", () => {
+    const calls: unknown[][] = [];
+    const manager = new PluginManager();
+    manager.register(recordingPlugin("opted", calls, { resetsProjectStateWhenAbsent: true }));
+    manager.restoreProjectState(withoutSettings, app, { projectLoad: true });
+    assert.deepEqual(calls, [["opted", undefined]]);
+  });
+
+  it("resets an opted-in plugin when the project has no plugin state at all", () => {
+    const calls: unknown[][] = [];
+    const manager = new PluginManager();
+    manager.register(recordingPlugin("opted", calls, { resetsProjectStateWhenAbsent: true }));
+    manager.restoreProjectState(null, app, { projectLoad: true });
+    assert.deepEqual(calls, [["opted", undefined]]);
+  });
+
+  it("does not reset on a map rebuild", () => {
+    const calls: unknown[][] = [];
+    const manager = new PluginManager();
+    manager.register(recordingPlugin("opted", calls, { resetsProjectStateWhenAbsent: true }));
+    manager.restoreProjectState(withoutSettings, app, { mapReplaced: true });
+    manager.restoreProjectState(withoutSettings, app, { projectLoad: false });
+    manager.restoreProjectState(withoutSettings, app);
+    assert.deepEqual(calls, []);
+  });
+
+  it("leaves a plugin that did not opt in untouched", () => {
+    const calls: unknown[][] = [];
+    const manager = new PluginManager();
+    manager.register(recordingPlugin("plain", calls));
+    manager.register(recordingPlugin("off", calls, { resetsProjectStateWhenAbsent: false }));
+    manager.restoreProjectState(withoutSettings, app, { projectLoad: true });
+    assert.deepEqual(calls, []);
+  });
+
+  it("does not reset while the setting is off, and follows it live", () => {
+    const calls: unknown[][] = [];
+    let allowed = false;
+    const manager = new PluginManager();
+    manager.setResetOnProjectLoadPolicy(() => allowed);
+    manager.register(recordingPlugin("opted", calls, { resetsProjectStateWhenAbsent: true }));
+    manager.restoreProjectState(withoutSettings, app, { projectLoad: true });
+    assert.deepEqual(calls, []);
+    allowed = true;
+    manager.restoreProjectState(withoutSettings, app, { projectLoad: true });
+    assert.deepEqual(calls, [["opted", undefined]]);
+  });
+
+  it("applies the project's own settings on a project load, once", () => {
+    const calls: unknown[][] = [];
+    const manager = new PluginManager();
+    manager.register(recordingPlugin("opted", calls, { resetsProjectStateWhenAbsent: true }));
+    manager.register(recordingPlugin("other", calls, { resetsProjectStateWhenAbsent: true }));
+    manager.restoreProjectState(
+      { ...withoutSettings, settings: { opted: { sites: 2 } } },
+      app,
+      { projectLoad: true },
+    );
+    assert.deepEqual(calls, [
+      ["opted", { sites: 2 }],
+      ["other", undefined],
+    ]);
+  });
+
+  it("still resets every plugin for a new project (resetMissingSettings)", () => {
+    const calls: unknown[][] = [];
+    const manager = new PluginManager();
+    manager.register(recordingPlugin("plain", calls));
+    manager.restoreProjectState(withoutSettings, app, { resetMissingSettings: true });
+    assert.deepEqual(calls, [["plain", undefined]]);
+  });
+});
+
+describe("project load detection for plugin restore", () => {
+  it("is a project load for a new generation, not the startup restore or a map rebuild", () => {
+    assert.equal(isProjectLoadRestore(null, 0), false);
+    assert.equal(isProjectLoadRestore(null, 1), true);
+    assert.equal(isProjectLoadRestore(3, 4), true);
+    assert.equal(isProjectLoadRestore(4, 4), false);
+  });
+});
+
+describe("resetPluginStateOnOpen setting", () => {
+  it("defaults on and keeps an explicit boolean either way", () => {
+    assert.equal(DEFAULT_PROJECT_SETTINGS.resetPluginStateOnOpen, true);
+    assert.equal(normalizeDesktopSettings({}).projects.resetPluginStateOnOpen, true);
+    for (const value of [true, false]) {
+      const projects = normalizeDesktopSettings({ projects: { resetPluginStateOnOpen: value } })
+        .projects;
+      assert.equal(projects.resetPluginStateOnOpen, value);
+    }
+  });
+
+  it("ignores a non-boolean value", () => {
+    const projects = normalizeDesktopSettings({ projects: { resetPluginStateOnOpen: "no" } })
+      .projects;
+    assert.equal(projects.resetPluginStateOnOpen, DEFAULT_PROJECT_SETTINGS.resetPluginStateOnOpen);
   });
 });

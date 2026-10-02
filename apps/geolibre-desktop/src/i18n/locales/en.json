@@ -2335,6 +2335,8 @@
       "pluginPublishableStateHint": "A plugin can say its saved settings are not a credential, so saving a project does not ask to strip them and a share keeps them. Keys that look like credentials are still removed.",
       "pluginStateAutosave": "Autosave changes made inside plugins",
       "pluginStateAutosaveHint": "When a plugin reports that its own settings or data changed, mark the project as unsaved and include the change in autosave and project history.",
+      "resetPluginStateOnOpen": "Reset plugin state when opening a project",
+      "resetPluginStateOnOpenHint": "A plugin that asks for it is cleared when you open a project that has no settings for it, instead of keeping what the previous project left in it. Plugins that do not ask are not affected.",
       "urlParamsNote": "URL layout parameters still apply when present in shared viewer links."
     },
     "appearance": {

@@ -113,6 +113,13 @@ export interface ProjectSettings {
    * something else saves it.
    */
   pluginStateAutosave: boolean;
+  /**
+   * Opening a project that has no settings for a plugin that opted in
+   * (`resetsProjectStateWhenAbsent`) resets that plugin instead of leaving the
+   * previous project's state in it. Inert unless a plugin opts in. Off: opening
+   * a project applies only the settings the project carries.
+   */
+  resetPluginStateOnOpen: boolean;
 }
 
 export type StartupProjectMode = "default" | "last" | "specific";
@@ -259,6 +266,7 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
   // Default on in this distribution; upstream defaults it to false.
   pluginPublishableState: true,
   pluginStateAutosave: true,
+  resetPluginStateOnOpen: true,
 };
 
 export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
@@ -368,6 +376,10 @@ function normalizeProjectSettings(projects: unknown): ProjectSettings {
       typeof candidate.pluginStateAutosave === "boolean"
         ? candidate.pluginStateAutosave
         : DEFAULT_PROJECT_SETTINGS.pluginStateAutosave,
+    resetPluginStateOnOpen:
+      typeof candidate.resetPluginStateOnOpen === "boolean"
+        ? candidate.resetPluginStateOnOpen
+        : DEFAULT_PROJECT_SETTINGS.resetPluginStateOnOpen,
   };
 }
 

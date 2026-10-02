@@ -232,6 +232,11 @@ useDesktopSettingsStore.subscribe((state, previous) => {
     manager.syncPublishableDeclarations();
   }
 });
+// A plugin's `resetsProjectStateWhenAbsent` only counts while "Reset plugin
+// state when opening a project" is on. Read at each project load.
+manager.setResetOnProjectLoadPolicy(
+  () => useDesktopSettingsStore.getState().desktopSettings.projects.resetPluginStateOnOpen,
+);
 setGeoLensDefaultServerUrl(readDeploymentEnvValue("VITE_GEOLENS_DEFAULT_URL"));
 manager.registerAll([
   maplibreLayerControlPlugin,

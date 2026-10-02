@@ -59,6 +59,9 @@ export interface GeoLibrePlugin {
   // redaction; a list keeps only those top-level keys. See "Plugin project
   // settings" below.
   projectStatePublishable?: boolean | readonly string[];
+  // `true` resets the plugin (applyProjectState(app, undefined)) when a project
+  // is opened without settings for it. See "Plugin project settings" below.
+  resetsProjectStateWhenAbsent?: boolean;
 }
 
 // Resolved by app.getDeckGL(): GeoLibre's own deck.gl modules, so a plugin
@@ -1301,6 +1304,19 @@ own live data after activation). Never call it from `activate`,
 that completes after the project loads), and never before `applyProjectState`
 or `activate` has run: the plugin would be announcing state it has not loaded
 yet, and the host would store that over the project's saved state.
+
+By default, opening a project applies only the settings the project file
+carries, so a plugin the new project has no settings for keeps showing the
+previous project's state. A plugin can opt in to being reset instead with
+`resetsProjectStateWhenAbsent: true`: when a project is loaded without settings
+for it, the host calls `applyProjectState(app, undefined)`, so the plugin must
+treat `undefined` as "clear everything". This happens only on a project load
+(open, new project, share link, a project-history or undo snapshot, and a
+collaborator's snapshot), never at startup before any project is opened and
+never when the map is rebuilt (a renderer swap), and only while the desktop setting "Reset plugin state when opening a
+project" (`projects.resetPluginStateOnOpen`) is on. The setting defaults to on
+and is inert unless a plugin opts in. A project that does carry settings for the
+plugin applies them as before.
 
 Manifest paths must be relative zip paths with forward slashes, no leading slash, no backslashes, and no `..` segments. External plugins cannot set `activeByDefault` on the exported plugin object, and the manifest-level flag is honored only for bundled drop-ins (see "Bundled plugins" above); saved project state can still reactivate an external plugin by ID after the zip is loaded.
 

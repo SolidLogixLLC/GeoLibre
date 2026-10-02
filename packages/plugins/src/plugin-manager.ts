@@ -15,6 +15,20 @@ import type {
   GeoLibreToolbarMenu,
 } from "./types";
 
+/** Options for {@link PluginManager.restoreProjectState}. */
+export interface PluginStateRestoreOptions {
+  /** Call `applyProjectState(undefined)` on every plugin missing from the state. */
+  resetMissingSettings?: boolean;
+  /** The map itself was replaced, so live controls are gone. */
+  mapReplaced?: boolean;
+  /**
+   * The restore follows a project load (a new project generation), not a map
+   * rebuild. Only then does a plugin that declares `resetsProjectStateWhenAbsent`
+   * get reset when the project carries no settings for it.
+   */
+  projectLoad?: boolean;
+}
+
 export class PluginManager {
   private renderer: MapRendererKind | null = null;
   private deferredState: ProjectPluginState | null = null;
@@ -64,6 +78,19 @@ export class PluginManager {
   // while the injected policy allows them.
   private publishableDisposers = new Map<string, () => void>();
   private isPublishableDeclarationAllowed: () => boolean = () => false;
+  // Gate for `resetsProjectStateWhenAbsent`. Allows by default: it is inert
+  // unless a plugin opts in. The desktop injects its setting.
+  private isResetOnProjectLoadAllowed: () => boolean = () => true;
+
+  /**
+   * Inject the gate for `resetsProjectStateWhenAbsent` (the desktop setting
+   * "Reset plugin state when opening a project"; this package must not import
+   * desktop code). Allows by default. It is read at each project load, so no
+   * re-sync is needed when the setting changes.
+   */
+  setResetOnProjectLoadPolicy(isAllowed: () => boolean): void {
+    this.isResetOnProjectLoadAllowed = isAllowed;
+  }
 
   /**
    * Inject the gate for `projectStatePublishable` declarations (the desktop
@@ -579,7 +606,7 @@ export class PluginManager {
   restoreProjectState(
     state: ProjectPluginState | null,
     app: GeoLibreAppAPI,
-    options: { resetMissingSettings?: boolean; mapReplaced?: boolean } = {},
+    options: PluginStateRestoreOptions = {},
   ): void {
     this.restoringDepth += 1;
     try {
@@ -592,7 +619,7 @@ export class PluginManager {
   private restoreProjectStateUnguarded(
     state: ProjectPluginState | null,
     app: GeoLibreAppAPI,
-    options: { resetMissingSettings?: boolean; mapReplaced?: boolean },
+    options: PluginStateRestoreOptions,
   ): void {
     const renderer = app.getMapRenderer?.() ?? "maplibre";
     // A new map took down every live control with the old one, so reactivate
@@ -689,9 +716,18 @@ export class PluginManager {
       }
 
       // Regular project loads apply only the settings present in the file. New
-      // project resets can opt into clearing cached state for every plugin.
+      // project resets can opt into clearing cached state for every plugin. A
+      // plugin that declares resetsProjectStateWhenAbsent is also reset when a
+      // project is opened without settings for it, but never on a map rebuild.
       const hasSetting = state?.settings && id in state.settings;
-      if (plugin.applyProjectState && (hasSetting || options.resetMissingSettings)) {
+      const resetOnProjectLoad =
+        options.projectLoad === true &&
+        plugin.resetsProjectStateWhenAbsent === true &&
+        this.isResetOnProjectLoadAllowed();
+      if (
+        plugin.applyProjectState &&
+        (hasSetting || options.resetMissingSettings || resetOnProjectLoad)
+      ) {
         const updated = plugin.applyProjectState(
           scopedApp,
           hasSetting ? state.settings[id] : undefined,

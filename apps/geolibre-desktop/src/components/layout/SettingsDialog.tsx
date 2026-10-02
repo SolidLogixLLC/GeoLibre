@@ -2418,6 +2418,27 @@ export function SettingsDialog({
                         </span>
                       </span>
                     </label>
+                    <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
+                      <input
+                        className="h-4 w-4"
+                        type="checkbox"
+                        checked={draftDesktopSettings.projects.resetPluginStateOnOpen}
+                        onChange={(event) =>
+                          updateDraftProjectSettings({
+                            resetPluginStateOnOpen: event.target.checked,
+                          })
+                        }
+                      />
+                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        <span className="block">
+                          {t("settings.layout.resetPluginStateOnOpen")}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {t("settings.layout.resetPluginStateOnOpenHint")}
+                        </span>
+                      </span>
+                    </label>
                   </div>
                   {showsAdvancedNotices(desktopSettings.uiProfile) ? (
                     <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">

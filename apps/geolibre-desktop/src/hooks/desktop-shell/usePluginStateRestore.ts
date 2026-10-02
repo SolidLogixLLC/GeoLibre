@@ -26,6 +26,7 @@ import {
   REVERSE_GEOCODE_PLUGIN_ID,
 } from "@geolibre/plugins";
 import { useEffect, useRef, type RefObject } from "react";
+import { isProjectLoadRestore } from "../../lib/plugin-restore-kind";
 import { restoreLocalFileLayers } from "../../lib/restore-local-layers";
 import { hasReverseGeocodeConsent } from "../../lib/reverse-geocode-consent";
 import { createAppAPI, getPluginManager } from "../usePlugins";
@@ -127,6 +128,10 @@ export function usePluginStateRestore({
     const pluginManager = getPluginManager();
     pluginManager.restoreProjectState(useAppStore.getState().projectPlugins, appAPI, {
       mapReplaced: restoredPluginEngine.current !== null && restoredPluginEngine.current !== engine,
+      // A project load changes projectGeneration; a map rebuild (renderer or
+      // basemap swap) only changes mapReadyGeneration and must not reset
+      // plugins that opted in to resetting on open.
+      projectLoad: isProjectLoadRestore(restoredPluginGeneration.current, projectGeneration),
     });
     restoredPluginEngine.current = engine;
     restoredPluginGeneration.current = projectGeneration;

@@ -1443,6 +1443,19 @@ export interface GeoLibrePlugin {
    * is on.
    */
   projectStatePublishable?: boolean | readonly string[];
+  /**
+   * Opt in to being reset when a project is opened that carries no settings for
+   * this plugin. Without it, such a project leaves the plugin showing whatever
+   * the previously open project left in it. With it, the host calls
+   * `applyProjectState(app, undefined)` on that project load, so the plugin
+   * clears its state.
+   *
+   * Only on a project load (open, new project, share link), never on a map
+   * rebuild (a renderer swap), and only while the desktop setting "Reset plugin
+   * state when opening a project" (`projects.resetPluginStateOnOpen`) is on.
+   * `applyProjectState` must therefore treat `undefined` as "reset to empty".
+   */
+  resetsProjectStateWhenAbsent?: boolean;
 }
 
 export interface GeoLibreExternalPluginManifest {
