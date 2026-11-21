@@ -3184,6 +3184,9 @@
       "compactLayerList": "Compact Layers panel (show layer controls only on the selected layer)",
       "bottomPanelsUnderMap": "Keep bottom panels under the map",
       "showAttributePanel": "Show Attribute panel",
+      "projects": "Projects",
+      "pluginPublishableState": "Let plugins mark their project settings as safe to share",
+      "pluginPublishableStateHint": "A plugin can say its saved settings are not a credential, so saving a project does not ask to strip them and a share keeps them. Keys that look like credentials are still removed.",
       "urlParamsNote": "URL layout parameters still apply when present in shared viewer links."
     },
     "appearance": {

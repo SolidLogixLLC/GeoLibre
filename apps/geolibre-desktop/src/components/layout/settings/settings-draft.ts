@@ -20,6 +20,7 @@ import type {
   DesktopLayoutSettings,
   UiProfileSettings,
   UpdateSettings,
+  ProjectSettings,
   StartupSettings,
 } from "../../../hooks/useDesktopSettings";
 import type { InstalledLanguagePack } from "../../../lib/language-pack";
@@ -60,6 +61,7 @@ export interface DraftDesktopSettings {
   uiProfile: UiProfileSettings;
   updates: UpdateSettings;
   startup: StartupSettings;
+  projects: ProjectSettings;
 }
 
 /**
@@ -199,6 +201,7 @@ export function cloneDesktopSettings(
     },
     updates: { ...settings.updates },
     startup: { ...settings.startup, center: [...settings.startup.center] },
+    projects: { ...settings.projects },
   };
 }
 

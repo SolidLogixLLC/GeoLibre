@@ -15,6 +15,7 @@ import {
   DEFAULT_DESKTOP_LAYOUT_SETTINGS,
   useDesktopSettingsStore,
   type DesktopLayoutSettings,
+  type ProjectSettings,
 } from "../../../hooks/useDesktopSettings";
 import { showsAdvancedNotices } from "../../../lib/ui-profile";
 import { useSettingsDraft } from "./SettingsDraftContext";
@@ -34,6 +35,14 @@ export function LayoutSection() {
     setDraftDesktopSettings((current) => ({
       ...current,
       layout: { ...current.layout, ...patch },
+    }));
+    setError(null);
+  };
+
+  const updateDraftProjectSettings = (patch: Partial<ProjectSettings>) => {
+    setDraftDesktopSettings((current) => ({
+      ...current,
+      projects: { ...current.projects, ...patch },
     }));
     setError(null);
   };
@@ -174,6 +183,30 @@ export function LayoutSection() {
           />
           <PanelBottom className="h-4 w-4 text-muted-foreground" />
           <span>{t("settings.layout.bottomPanelsUnderMap")}</span>
+        </label>
+      </div>
+      <div className="space-y-3">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("settings.layout.projects")}
+        </h4>
+        <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
+          <input
+            className="h-4 w-4"
+            type="checkbox"
+            checked={draftDesktopSettings.projects.pluginPublishableState}
+            onChange={(event) =>
+              updateDraftProjectSettings({
+                pluginPublishableState: event.target.checked,
+              })
+            }
+          />
+          <FolderCog className="h-4 w-4 text-muted-foreground" />
+          <span>
+            <span className="block">{t("settings.layout.pluginPublishableState")}</span>
+            <span className="block text-xs text-muted-foreground">
+              {t("settings.layout.pluginPublishableStateHint")}
+            </span>
+          </span>
         </label>
       </div>
       {showsAdvancedNotices(desktopSettings.uiProfile) ? (

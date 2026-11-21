@@ -6,6 +6,7 @@ import {
 import { unregisterFileHandlersByOwner } from "./file-handler-registry";
 import { unregisterMenuContributionsByOwner } from "./menu-contribution-registry";
 import { unregisterSearchProvidersByOwner } from "./search-provider-registry";
+import { registerPublishablePluginSettings } from "@geolibre/core";
 import type { MapRendererKind, ProjectPluginState } from "@geolibre/core";
 import type { IControl } from "maplibre-gl";
 import type {
@@ -38,6 +39,44 @@ export class PluginManager {
   private deferredActive = new Set<string>();
   /** Bumped by every restoreProjectState so a superseded restore's scopes go stale. */
   private restorePass = 0;
+  // Runtime declarations of publishable project state, by plugin id. Held only
+  // while the injected policy allows them.
+  private publishableDisposers = new Map<string, () => void>();
+  private isPublishableDeclarationAllowed: () => boolean = () => false;
+
+  /**
+   * Inject the gate for `projectStatePublishable` declarations (the desktop
+   * setting; this package must not import desktop code). Denies by default.
+   * Re-syncs every registered plugin, so call it again after the setting
+   * changes via {@link syncPublishableDeclarations}.
+   */
+  setPublishableDeclarationPolicy(isAllowed: () => boolean): void {
+    this.isPublishableDeclarationAllowed = isAllowed;
+    this.syncPublishableDeclarations();
+  }
+
+  /** Re-apply every plugin's `projectStatePublishable` against the current policy. */
+  syncPublishableDeclarations(): void {
+    for (const plugin of this.plugins.values()) this.syncPublishableDeclaration(plugin);
+  }
+
+  private syncPublishableDeclaration(plugin: GeoLibrePlugin): void {
+    this.publishableDisposers.get(plugin.id)?.();
+    this.publishableDisposers.delete(plugin.id);
+    if (!this.isPublishableDeclarationAllowed()) return;
+    const declared = plugin.projectStatePublishable;
+    if (declared === true) {
+      this.publishableDisposers.set(plugin.id, registerPublishablePluginSettings(plugin.id, null));
+    } else if (Array.isArray(declared)) {
+      this.publishableDisposers.set(
+        plugin.id,
+        registerPublishablePluginSettings(
+          plugin.id,
+          declared.filter((key): key is string => typeof key === "string"),
+        ),
+      );
+    }
+  }
 
   private supportsEngine(id: string, app: GeoLibreAppAPI): boolean {
     return isPluginEngineSupported(this.plugins.get(id), app.getMapRenderer?.() ?? "maplibre");
@@ -162,6 +201,7 @@ export class PluginManager {
       }
     }
     this.plugins.set(plugin.id, plugin);
+    this.syncPublishableDeclaration(plugin);
     // Keep the first registration's claim so another plugin cannot overwrite
     // or clear its published state, even when that owner is inactive.
     const claimed = new Set(
@@ -233,6 +273,8 @@ export class PluginManager {
     }
     releaseOwnedRegistrations(id);
     this.clearUrlParameters(id, app);
+    this.publishableDisposers.get(id)?.();
+    this.publishableDisposers.delete(id);
     this.plugins.delete(id);
     this.deferredActive.delete(id);
     this.defaultActive.delete(id);

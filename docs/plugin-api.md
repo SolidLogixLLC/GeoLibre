@@ -59,6 +59,10 @@ export interface GeoLibrePlugin {
   ) => boolean | void;
   getProjectState?: () => unknown;
   applyProjectState?: (app: GeoLibreAppAPI, state: unknown) => boolean | void;
+  // `true` keeps the whole getProjectState() blob through credential
+  // redaction; a list keeps only those top-level keys. See "Plugin project
+  // settings" below.
+  projectStatePublishable?: boolean | readonly string[];
   /**
    * The plugin saves its own panel open/collapsed state through
    * getProjectState/applyProjectState, so the project-restore pass must not
@@ -2078,6 +2082,23 @@ registry entry declares publishable (see `publishableSettings` under [Plugin
 marketplace](#plugin-marketplace)), which is kept and still scrubbed for credentials. Store portable, non-secret identifiers
 such as broker references in layer source or metadata instead when recipients
 need them.
+
+A plugin whose project state is known not to be a credential can say so with
+`projectStatePublishable`: `true` keeps the whole `getProjectState()` blob, a
+list of keys keeps only those top-level keys of an object blob. The save
+dialog then does not ask to strip that plugin's settings and shares keep them.
+The host still sweeps what is kept: credential-like keys (`token`, `apiKey`,
+`password`, ...) are dropped and URLs carrying credentials are rewritten, so a
+mistake in the plugin cannot leak a secret through a listed key. The
+declaration is read from the loaded plugin code, never from a project file, so
+a project cannot widen its own allowlist, and the host's built-in allowlist and the plugin registry's
+`publishableSettings` both take precedence. It only takes effect while the desktop
+setting "Let plugins mark their project settings as safe to share"
+(`projects.pluginPublishableState`) is on; the setting defaults to off in
+upstream builds, and toggling it applies immediately to already-loaded
+plugins. The Python package mirrors the host's static allowlist
+(`PUBLISHABLE_PLUGIN_SETTINGS`) only; it does not see runtime declarations, so
+`geolibre.project` redaction still drops a plugin-declared blob.
 
 Manifest paths must be relative zip paths with forward slashes, no leading slash, no backslashes, and no `..` segments. External plugins cannot set `activeByDefault` on the exported plugin object, and the manifest-level flag is honored only for bundled drop-ins (see "Bundled plugins" above); saved project state can still reactivate an external plugin by ID after the zip is loaded.
 

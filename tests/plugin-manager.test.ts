@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
+import { publishableSettingsFor } from "@geolibre/core";
 import { PluginManager } from "../packages/plugins/src/plugin-manager";
 import {
   __resetToolbarMenuRegistryForTests,
@@ -1888,5 +1889,64 @@ describe("PluginManager restore onto a replaced map", () => {
     manager.restoreProjectState(state, app, { mapReplaced: true });
     assert.deepEqual(calls, ["activate", "deactivate", "activate"]);
     assert.equal(manager.isActive("dock"), true);
+  });
+});
+
+describe("PluginManager publishable project state", () => {
+  const id = "publishable-test-plugin";
+
+  it("ignores the declaration until the policy allows it (denied by default)", () => {
+    const manager = new PluginManager();
+    manager.register(testPlugin({ id, projectStatePublishable: true }));
+    assert.equal(publishableSettingsFor(id), undefined);
+    manager.unregister(id, app);
+  });
+
+  it("registers a whole-blob and a key-list declaration while the policy allows", () => {
+    const manager = new PluginManager();
+    manager.setPublishableDeclarationPolicy(() => true);
+    manager.register(testPlugin({ id, projectStatePublishable: true }));
+    assert.equal(publishableSettingsFor(id), null);
+
+    manager.register(testPlugin({ id, projectStatePublishable: ["sites", "globals"] }));
+    assert.deepEqual(publishableSettingsFor(id), ["sites", "globals"]);
+
+    manager.register(testPlugin({ id, projectStatePublishable: false }));
+    assert.equal(publishableSettingsFor(id), undefined);
+    manager.unregister(id, app);
+  });
+
+  it("registers nothing for a plugin without a declaration", () => {
+    const manager = new PluginManager();
+    manager.setPublishableDeclarationPolicy(() => true);
+    manager.register(testPlugin({ id }));
+    assert.equal(publishableSettingsFor(id), undefined);
+    manager.unregister(id, app);
+  });
+
+  it("follows the setting when it is toggled and re-synced", () => {
+    let allowed = false;
+    const manager = new PluginManager();
+    manager.setPublishableDeclarationPolicy(() => allowed);
+    manager.register(testPlugin({ id, projectStatePublishable: true }));
+    assert.equal(publishableSettingsFor(id), undefined);
+
+    allowed = true;
+    manager.syncPublishableDeclarations();
+    assert.equal(publishableSettingsFor(id), null);
+
+    allowed = false;
+    manager.syncPublishableDeclarations();
+    assert.equal(publishableSettingsFor(id), undefined);
+    manager.unregister(id, app);
+  });
+
+  it("removes the declaration when the plugin is unregistered", () => {
+    const manager = new PluginManager();
+    manager.setPublishableDeclarationPolicy(() => true);
+    manager.register(testPlugin({ id, projectStatePublishable: true }));
+    assert.equal(publishableSettingsFor(id), null);
+    manager.unregister(id, app);
+    assert.equal(publishableSettingsFor(id), undefined);
   });
 });

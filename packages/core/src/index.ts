@@ -261,6 +261,8 @@ export {
   MAX_REDACT_DEPTH,
   PROJECT_CREDENTIAL_FIELDS,
   PUBLISHABLE_PLUGIN_SETTINGS,
+  publishableSettingsFor,
+  registerPublishablePluginSettings,
   redactConfigurationCredentials,
   redactCredentials,
   redactProjectCredentials,

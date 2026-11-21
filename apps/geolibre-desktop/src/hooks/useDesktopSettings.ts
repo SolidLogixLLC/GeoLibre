@@ -135,6 +135,18 @@ export interface DesktopSettings {
   updates: UpdateSettings;
   /** Native-app project restoration policy. Browser builds ignore this setting. */
   startup: StartupSettings;
+  /** How saving and sharing a project treats plugin-owned state. */
+  projects: ProjectSettings;
+}
+
+export interface ProjectSettings {
+  /**
+   * Let a plugin declare (`projectStatePublishable`) that its project settings
+   * are not a credential, so saving a project no longer asks to strip them and
+   * a share keeps them. The host still drops credential-like keys inside what
+   * is kept. Off: every plugin's settings are treated as potentially secret.
+   */
+  pluginPublishableState: boolean;
 }
 
 export type StartupProjectMode = "default" | "last" | "specific";
@@ -329,6 +341,10 @@ export const DEFAULT_UPDATE_SETTINGS: UpdateSettings = {
   notificationLevel: "all",
 };
 
+export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
+  pluginPublishableState: false,
+};
+
 export const DEFAULT_STARTUP_SETTINGS: StartupSettings = {
   mode: "default",
   projectPath: null,
@@ -364,6 +380,7 @@ const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   uiProfile: DEFAULT_UI_PROFILE_SETTINGS,
   updates: DEFAULT_UPDATE_SETTINGS,
   startup: DEFAULT_STARTUP_SETTINGS,
+  projects: DEFAULT_PROJECT_SETTINGS,
 };
 
 /** The experience-level presets, in order. Single source of truth. */
@@ -409,6 +426,19 @@ export function normalizeDesktopSettings(settings: unknown): DesktopSettings {
     uiProfile: normalizeUiProfileSettings(candidate.uiProfile),
     updates: normalizeUpdateSettings(candidate.updates),
     startup: normalizeStartupSettings(candidate.startup),
+    projects: normalizeProjectSettings(candidate.projects),
+  };
+}
+
+function normalizeProjectSettings(projects: unknown): ProjectSettings {
+  if (!projects || typeof projects !== "object") return DEFAULT_PROJECT_SETTINGS;
+  // Strict boolean so a tampered localStorage value cannot switch this on.
+  const candidate = projects as Partial<ProjectSettings>;
+  return {
+    pluginPublishableState:
+      typeof candidate.pluginPublishableState === "boolean"
+        ? candidate.pluginPublishableState
+        : DEFAULT_PROJECT_SETTINGS.pluginPublishableState,
   };
 }
 

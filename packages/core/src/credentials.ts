@@ -395,17 +395,55 @@ export function setRegistryPublishableSettings(
 }
 
 /**
- * Look up the publishable settings for a plugin id.
+ * Publishable plugin settings declared at runtime by loaded plugin code (the
+ * plugin's `projectStatePublishable` field), keyed by plugin id. Never filled
+ * from a project file, so a shared project cannot widen its own allowlist.
+ * Each entry carries its own token so a disposer cannot remove a newer
+ * declaration for the same id.
+ */
+const runtimePublishablePluginSettings = new Map<
+  string,
+  { token: symbol; keys: readonly string[] | null }
+>();
+
+/**
+ * Declare a plugin's settings blob safe to keep through credential redaction:
+ * its sub-keys, or `null` for the whole blob. Returns a disposer. Built-in ids
+ * in {@link PUBLISHABLE_PLUGIN_SETTINGS} and registry declarations
+ * ({@link setRegistryPublishableSettings}) win over a runtime declaration for
+ * the same id. The kept blob is still swept by `redactConfigurationValue`.
+ *
+ * @param id Plugin id.
+ * @param keys The sub-keys to keep, or `null` to keep the whole blob.
+ * @returns A function that removes this declaration.
+ */
+export function registerPublishablePluginSettings(
+  id: string,
+  keys: readonly string[] | null,
+): () => void {
+  const token = Symbol(id);
+  runtimePublishablePluginSettings.set(id, { token, keys: keys === null ? null : [...keys] });
+  return () => {
+    if (runtimePublishablePluginSettings.get(id)?.token === token) {
+      runtimePublishablePluginSettings.delete(id);
+    }
+  };
+}
+
+/**
+ * Look up the publishable settings for a plugin id. Order: the built-in list,
+ * then the curated registry, then a declaration made by the loaded plugin.
  *
  * @param id Plugin id.
  * @returns `undefined` when nothing is publishable, `null` to keep the whole
  *   blob, otherwise the list of keys to keep.
  */
-function publishableSettingsFor(id: string): readonly string[] | null | undefined {
+export function publishableSettingsFor(id: string): readonly string[] | null | undefined {
   if (Object.prototype.hasOwnProperty.call(PUBLISHABLE_PLUGIN_SETTINGS, id)) {
     return PUBLISHABLE_PLUGIN_SETTINGS[id];
   }
-  return registryPublishableSettings.get(id);
+  if (registryPublishableSettings.has(id)) return registryPublishableSettings.get(id);
+  return runtimePublishablePluginSettings.get(id)?.keys;
 }
 
 /**
