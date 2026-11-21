@@ -8,7 +8,7 @@ import {
   within,
 } from "./helpers/dom";
 import assert from "node:assert/strict";
-import { describe, it, type TestContext } from "node:test";
+import { beforeEach, describe, it, type TestContext } from "node:test";
 import { createElement } from "react";
 import { geojsonLayer } from "./helpers/layer-fixtures";
 
@@ -18,6 +18,18 @@ const { useLayerRefresh } =
   await import("../apps/geolibre-desktop/src/components/panels/layer-panel/useLayerRefresh");
 
 const noop = () => {};
+
+// The compact Layers panel is on by default in this distribution (upstream's
+// default is off). These tests describe the full layer cards, so each one starts
+// from upstream's default; a test that wants the compact list turns it on.
+beforeEach(() => {
+  useDesktopSettingsStore.setState((state) => ({
+    desktopSettings: {
+      ...state.desktopSettings,
+      layout: { ...state.desktopSettings.layout, compactLayerList: false },
+    },
+  }));
+});
 
 /** Render the Layers panel with the same shell-owned refresh hook. */
 function LayerPanelHarness() {

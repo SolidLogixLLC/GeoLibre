@@ -46,9 +46,9 @@ describe("dockable panel layout settings", () => {
 // The compact Layers panel (#3045) is a per-user display choice, so it lives in
 // the layout settings and must survive a reload without flipping existing users.
 describe("compact layer list setting", () => {
-  it("defaults to the full layer cards", () => {
-    assert.equal(DEFAULT_DESKTOP_LAYOUT_SETTINGS.compactLayerList, false);
-    assert.equal(normalizeDesktopSettings({ layout: {} }).layout.compactLayerList, false);
+  it("defaults to the compact list in this distribution (upstream defaults to full cards)", () => {
+    assert.equal(DEFAULT_DESKTOP_LAYOUT_SETTINGS.compactLayerList, true);
+    assert.equal(normalizeDesktopSettings({ layout: {} }).layout.compactLayerList, true);
   });
 
   it("keeps compact mode on across a load", () => {
@@ -58,7 +58,7 @@ describe("compact layer list setting", () => {
 
   it("rejects a non-boolean value from tampered storage", () => {
     const layout = normalizeDesktopSettings({ layout: { compactLayerList: "yes" } }).layout;
-    assert.equal(layout.compactLayerList, false);
+    assert.equal(layout.compactLayerList, DEFAULT_DESKTOP_LAYOUT_SETTINGS.compactLayerList);
   });
 });
 

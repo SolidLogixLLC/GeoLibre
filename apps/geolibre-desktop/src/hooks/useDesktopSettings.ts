@@ -327,7 +327,8 @@ export const DEFAULT_DESKTOP_LAYOUT_SETTINGS: DesktopLayoutSettings = {
   browserPanelVisible: true,
   bottomPanelsUnderMap: true,
   commentsPanelVisible: true,
-  compactLayerList: false,
+  // Default on in this distribution; upstream defaults it to false.
+  compactLayerList: true,
   layerGroupSections: false,
   layerPanelVisible: true,
   showProjectInfo: true,
