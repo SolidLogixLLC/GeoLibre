@@ -145,7 +145,7 @@ describe("registerFeatureInteraction hover width (maplibre-gl 6)", () => {
     assert.equal(
       result.result,
       "success",
-      result.result === "error" ? JSON.stringify(result.value) : undefined,
+      result.result === "error" ? JSON.stringify(result.value) : "valid line-width expression",
     );
   }
 

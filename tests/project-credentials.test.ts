@@ -8,7 +8,6 @@ import {
   redactCredentials,
   redactProjectCredentials,
   registerPublishablePluginSettings,
-  setRegistryPublishableSettings,
   redactUrlCredentials,
   serializeProject,
   setRegistryPublishableSettings,
@@ -546,6 +545,7 @@ describe("runtime publishable plugin settings", () => {
     original.plugins = {
       manifestUrls: [],
       activePluginIds: [id],
+      mapControlPositions: {},
       settings: { [id]: blob },
     };
     return original;
@@ -561,15 +561,15 @@ describe("runtime publishable plugin settings", () => {
           source: "https://user:pw@example.com/data?token=url-secret&site=1",
         }),
       );
-      const kept = project.plugins!.settings["geologix-plugin"];
+      const kept = pluginSetting(project, "geologix-plugin")!;
 
       assert.deepEqual(kept.sites, [{ id: "s1", lat: 41.2, lon: -112.1 }]);
       assert.ok(!("token" in kept), "credential-named key inside a declared blob is dropped");
       assert.ok(!serializeProject(project).includes("url-secret"));
       assert.ok(!serializeProject(project).includes("site-token-secret"));
       assert.ok(!serializeProject(project).includes("user:pw"));
-      assert.match(kept.source, /^https:\/\/example\.com\/data\?/);
-      assert.match(kept.source, /site=1/);
+      assert.match(String(kept.source), /^https:\/\/example\.com\/data\?/);
+      assert.match(String(kept.source), /site=1/);
       // The sweep is reported, so the host can still tell the user.
       assert.ok(redactedPaths.some((path) => path.startsWith("plugins.settings")));
     } finally {
