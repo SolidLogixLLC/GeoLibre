@@ -90,6 +90,14 @@ export function createPluginLayerQueries() {
         })),
     getLayerFeatures: (layerId: string) =>
       readLayerFeatures(useAppStore.getState().layers, layerId),
+    // A cheap companion to getLayerFeatures: the feature count without
+    // cloning, so a plugin can test a large layer for emptiness on every
+    // layers notification.
+    getLayerFeatureCount: (layerId: string) => {
+      const layer = useAppStore.getState().layers.find((item) => item.id === layerId);
+      if (!layer) throw new Error(`No layer with id "${layerId}"`);
+      return layer.geojson?.features?.length ?? 0;
+    },
     getSelectedFeatures: () => readPluginSelection().features,
     getSelectedLayerId: () => useAppStore.getState().selectedLayerId,
     getDrawnFeatures: () => readDrawnFeatures(useAppStore.getState().layers),

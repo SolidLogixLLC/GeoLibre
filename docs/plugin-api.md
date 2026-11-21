@@ -139,7 +139,7 @@ export interface GeoLibreAppAPI {
     name: string,
     data: FeatureCollection,
     sourcePath?: string,
-    options?: { attribution?: string }
+    options?: { attribution?: string; transient?: boolean }
   ) => string;
   // Replace a GeoJSON layer's features in place, or remove a layer.
   // See "Updating and removing layers".
@@ -147,6 +147,7 @@ export interface GeoLibreAppAPI {
   removeLayer?: (layerId: string) => void;
   listLayers?: () => GeoLibreLayerSummary[];
   getLayerFeatures?: (layerId: string) => Feature<Geometry | null>[];
+  getLayerFeatureCount?: (layerId: string) => number;
   // Dress a layer with an SLD, QML or Mapbox GL style. See "Layer styles".
   importLayerStyle?: (
     layerId: string,
@@ -801,6 +802,17 @@ matched using their zero-based array index converted to a string. An empty
 selection returns an empty array. `getLayerFeatures` throws when the layer id is
 unknown and returns an empty array for a layer that has no GeoJSON features.
 
+`getLayerFeatureCount(layerId)` returns how many features a layer currently
+holds in memory (0 for a layer with none) without cloning them, so a plugin
+can cheaply test a large layer for emptiness, for example on every layers
+notification. Like `getLayerFeatures`, it throws when the layer id is unknown.
+
+```typescript
+if (app.getLayerFeatureCount?.(layerId) === 0) {
+  // The layer holds no features yet.
+}
+```
+
 Selection subscriptions fire after the selected layer or selected feature-id
 array changes. Keep and call the returned unsubscribe function during plugin
 deactivation:
@@ -886,6 +898,25 @@ if (!(await app.startEditSession?.(myLayerId))) {
 
 All three are optional, so call them with optional chaining for older hosts.
 
+
+## Transient GeoJSON layers
+
+Pass `{ transient: true }` as the fourth argument of `addGeoJsonLayer` to add a
+GeoJSON layer whose features stay in memory but are not written to the project
+file or autosave. Use it for data the plugin rebuilds itself, such as a live
+feed or a large derived layer, where saving a copy would only bloat the
+project. Without the option, `addGeoJsonLayer` behaves as before.
+
+```typescript
+const layerId = app.addGeoJsonLayer("Live positions", features, undefined, {
+  transient: true,
+});
+```
+
+A transient layer's name, style, visibility and order are saved, but its
+features are not, so the layer comes back empty when the project is reopened.
+The plugin supplies the features again with `updateGeoJsonLayer` (see below);
+`getLayerFeatureCount` tells it whether the layer is empty.
 
 ## Updating and removing layers
 

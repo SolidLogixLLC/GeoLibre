@@ -103,6 +103,12 @@ export type GeoLibreBuiltInMapControl =
 export interface GeoLibreGeoJsonLayerOptions {
   /** Attribution shown in MapLibre's native attribution control. */
   attribution?: string;
+  /**
+   * When true the layer's features are kept in memory but not written to the
+   * project file or autosave; the plugin must re-supply them (for example
+   * with `updateGeoJsonLayer`) after a project is reopened.
+   */
+  transient?: boolean;
 }
 
 /** One property displayed by a plugin-registered hover tooltip. */
@@ -779,6 +785,12 @@ export interface GeoLibreAppAPI {
   removeLayer?: (layerId: string) => void;
   listLayers?: () => GeoLibreLayerSummary[];
   getLayerFeatures?: (layerId: string) => Feature<Geometry | null>[];
+  /**
+   * Number of features a layer currently holds in memory (0 for a layer with
+   * none, such as a reopened `transient` GeoJSON layer), without cloning them.
+   * Throws for an unknown layer id, like {@link getLayerFeatures}.
+   */
+  getLayerFeatureCount?: (layerId: string) => number;
   /**
    * Apply a style written in another format to a layer, like the Layers
    * panel's "Import style": an OGC SLD, a QGIS QML or a Mapbox GL style JSON,

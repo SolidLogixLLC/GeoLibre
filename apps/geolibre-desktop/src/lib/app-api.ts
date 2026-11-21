@@ -306,6 +306,7 @@ export function createAppAPI(
     ) => {
       const id = store.addGeoJsonLayer(name, data, sourcePath, null, {
         ...(options?.attribution ? { attribution: options.attribution } : {}),
+        ...(options?.transient ? { metadata: { transientGeojson: true } } : {}),
       });
       return id;
     },
