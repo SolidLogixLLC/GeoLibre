@@ -1012,6 +1012,16 @@ export interface GeoLibreAppAPI {
    * function.
    */
   onLayersChanged?: (callback: (layerIds: string[]) => void) => () => void;
+  /**
+   * Subscribe to changes in the layers array (add/remove/reorder/visibility/
+   * opacity/group). Returns an unsubscribe function (call it from
+   * `deactivate`). Typed optional for forward-compatibility, so call it with
+   * optional chaining. Fork-only: {@link onLayersChanged} hands back layer ids
+   * only, and not on visibility, opacity or group changes.
+   */
+  subscribeLayers?: (
+    listener: (layers: GeoLibreLayer[], previousLayers: GeoLibreLayer[]) => void,
+  ) => () => void;
   fetchArrayBuffer?: (url: string) => Promise<ArrayBuffer>;
   /**
    * Turn a data URL into one a plain HTTP reader (`fetch`, an `<img>`, a
@@ -1213,6 +1223,16 @@ export interface GeoLibreAppAPI {
    * creating a second group with the same name. No-op if the group is gone.
    */
   moveLayersToGroup?: (layerIds: string[], groupId: string | null) => void;
+  /**
+   * Move a layer into a group, or pass `groupId: null` to remove it from its
+   * current group. Fork-only: {@link moveLayersToGroup} moves a batch and has
+   * no `beforeLayerId` ordering.
+   */
+  moveLayerToGroup?: (
+    layerId: string,
+    groupId: string | null,
+    beforeLayerId?: string | null,
+  ) => void;
   /**
    * Nest a Layers-panel group inside another one, or lift it back to the panel
    * root with a null parent id. The group-of-groups counterpart of

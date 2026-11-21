@@ -39,6 +39,10 @@ export function createPluginLayerGroupActions() {
     moveLayerGroupToGroup: (id: string, parentId: string | null) =>
       useAppStore.getState().moveLayerGroupToGroup(id, parentId),
     removeLayerGroup: (id: string) => useAppStore.getState().removeLayerGroup(id),
+    // Fork addition: a single ordered move. `moveLayersToGroup` has no
+    // `beforeLayerId`, so a plugin could not place a layer within its group.
+    moveLayerToGroup: (layerId: string, groupId: string | null, beforeLayerId?: string | null) =>
+      useAppStore.getState().moveLayerToGroup(layerId, groupId, beforeLayerId),
   };
 }
 

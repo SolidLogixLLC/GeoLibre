@@ -245,6 +245,8 @@ export interface GeoLibreAppAPI {
   addLayerGroup?: (name?: string, layerIds?: string[]) => string;
   listLayerGroups?: () => GeoLibreLayerGroupSummary[];
   moveLayersToGroup?: (layerIds: string[], groupId: string | null) => void;
+  moveLayerToGroup?: (layerId: string, groupId: string | null, beforeLayerId?: string | null) => void;
+  subscribeLayers?: (listener: (layers: GeoLibreLayer[], previousLayers: GeoLibreLayer[]) => void) => () => void;
   moveLayerGroupToGroup?: (id: string, parentId: string | null) => void;
   removeLayerGroup?: (id: string) => void;
   // Time Slider adapters (see "Driving a layer's own time dimension" below).
@@ -922,6 +924,10 @@ if (basins && subBasins) app.moveLayerGroupToGroup?.(subBasins, basins);
 // Remove the folder without removing the layers inside it.
 if (subBasins) app.removeLayerGroup?.(subBasins);
 ```
+
+`moveLayerToGroup(layerId, groupId, beforeLayerId?)` is the single-layer form of `moveLayersToGroup` with an optional `beforeLayerId` to place the layer within the group (a fork addition; the batch method has no ordering).
+
+`subscribeLayers(listener)` returns an unsubscribe function and calls `listener(layers, previousLayers)` with the full layer objects whenever the layers array or the layer groups change (add, remove, reorder, visibility, opacity, group). Unlike `onLayersChanged`, which hands back ids and fires only on add, remove and reorder, it lets a plugin diff everything. Call it with optional chaining and unsubscribe from `deactivate` (a fork addition).
 
 `moveLayerGroupToGroup` is the group-of-groups counterpart of `moveLayersToGroup`: the same reparenting the Layers panel's own "Move to group" menu performs. It is a no-op when either id is unknown, when the group is already in that parent, and when the move would make a group its own ancestor — the host refuses the cycle rather than corrupting the tree, so a plugin does not have to walk the parent chain itself.
 

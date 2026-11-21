@@ -21,7 +21,8 @@ import {
   isCredentialedS3Url,
   resolveReadableUrl,
 } from "@geolibre/core";
-import type { CesiumEngine, getPrimaryCesiumControlHost, MapEngine } from "@geolibre/map";
+import type { GeoLibreLayer } from "@geolibre/core";
+import type { CesiumEngine,getPrimaryCesiumControlHost, MapEngine } from "@geolibre/map";
 import type * as GeoLibrePlugins from "@geolibre/plugins";
 import type {
   GeoLibreActiveMapTool,
@@ -580,6 +581,16 @@ export function createAppAPI(
           layerIds.some((id, index) => id !== prev.layers[index]?.id)
         ) {
           callback(layerIds);
+        }
+      }),
+    // Fork addition: unlike onLayersChanged this hands back the layer objects
+    // and also fires on visibility, opacity and group changes.
+    subscribeLayers: (
+      listener: (layers: GeoLibreLayer[], previousLayers: GeoLibreLayer[]) => void,
+    ) =>
+      useAppStore.subscribe((state, previous) => {
+        if (state.layers !== previous.layers || state.layerGroups !== previous.layerGroups) {
+          listener(state.layers, previous.layers);
         }
       }),
     fetchArrayBuffer: fetchRemoteArrayBuffer,

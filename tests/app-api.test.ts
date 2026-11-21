@@ -1734,3 +1734,42 @@ describe("plugin app API through the plugin manager", () => {
     assert.equal(typeof api.registerAssistantTool, "function");
   });
 });
+
+describe("plugin app API fork layer helpers", () => {
+  beforeEach(() => {
+    useAppStore.getState().newProject({ name: "App API fork layers" });
+  });
+
+  it("subscribeLayers hands over layer objects and fires on visibility and group changes", () => {
+    const api = createAppAPI(undefined, fakeHost().host);
+    const seen: Array<{ layers: number; previous: number }> = [];
+    const unsubscribe = api.subscribeLayers((layers, previous) => {
+      seen.push({ layers: layers.length, previous: previous.length });
+    });
+    const empty = { type: "FeatureCollection" as const, features: [] };
+    const id = useAppStore.getState().addGeoJsonLayer("L", empty);
+    assert.deepEqual(seen.at(-1), { layers: 1, previous: 0 });
+    const before = seen.length;
+    useAppStore.getState().updateLayer(id, { visible: false });
+    assert.equal(seen.length, before + 1, "a visibility change fires the listener");
+    useAppStore.getState().addLayerGroup("Folder");
+    assert.equal(seen.length, before + 2, "a group change fires the listener");
+    unsubscribe();
+    useAppStore.getState().updateLayer(id, { visible: true });
+    assert.equal(seen.length, before + 2, "an unsubscribed listener stays quiet");
+  });
+
+  it("moveLayerToGroup moves one layer into a group before a sibling, and out with null", () => {
+    const api = createAppAPI(undefined, fakeHost().host);
+    const empty = { type: "FeatureCollection" as const, features: [] };
+    const a = useAppStore.getState().addGeoJsonLayer("A", empty);
+    const b = useAppStore.getState().addGeoJsonLayer("B", empty);
+    const group = api.addLayerGroup("Folder", [a]);
+    api.moveLayerToGroup(b, group, a);
+    const layers = useAppStore.getState().layers;
+    assert.equal(layers.find((l) => l.id === b)?.groupId, group);
+    assert.ok(layers.findIndex((l) => l.id === b) < layers.findIndex((l) => l.id === a));
+    api.moveLayerToGroup(b, null);
+    assert.equal(useAppStore.getState().layers.find((l) => l.id === b)?.groupId, undefined);
+  });
+});
