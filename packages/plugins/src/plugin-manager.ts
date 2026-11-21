@@ -5,6 +5,7 @@ import {
 } from "./assistant-tool-registry";
 import { unregisterFileHandlersByOwner } from "./file-handler-registry";
 import { unregisterMenuContributionsByOwner } from "./menu-contribution-registry";
+import { unregisterSearchProvidersByOwner } from "./search-provider-registry";
 import type { MapRendererKind, ProjectPluginState } from "@geolibre/core";
 import type { IControl } from "maplibre-gl";
 import type {
@@ -14,6 +15,7 @@ import type {
   GeoLibreMapControlPosition,
   GeoLibrePlugin,
   GeoLibreMenuContribution,
+  GeoLibreSearchProvider,
   GeoLibreToolbarMenu,
 } from "./types";
 
@@ -27,6 +29,7 @@ function releaseOwnedRegistrations(id: string): void {
   unregisterAssistantToolsByOwner(id);
   unregisterMenuContributionsByOwner(id);
   unregisterFileHandlersByOwner(id);
+  unregisterSearchProvidersByOwner(id);
 }
 
 export class PluginManager {
@@ -883,6 +886,7 @@ function scopeAppToPlugin(
     !app.unregisterMenuContribution &&
     !app.registerFileHandler &&
     !app.unregisterFileHandler &&
+    !app.registerSearchProvider &&
     !onControlAdded &&
     !onRightPanelOpened &&
     !activatePlugin &&
@@ -996,6 +1000,20 @@ function scopeAppToPlugin(
       ownerPluginId: string,
     ) => void;
     scoped.unregisterFileHandler = (id) => unregisterHandler(id, pluginId);
+  }
+
+  if (app.registerSearchProvider) {
+    // Same host-side owner injection and liveness gate as file handlers: the
+    // concrete impl takes an owner id that the manager uses to drop the
+    // plugin's providers when it is deactivated.
+    const registerProviderWithOwner = app.registerSearchProvider as (
+      provider: GeoLibreSearchProvider,
+      ownerPluginId: string,
+    ) => () => void;
+    scoped.registerSearchProvider = (provider) =>
+      canAddControl?.() === false || isLive?.() === false
+        ? () => {}
+        : registerProviderWithOwner(provider, pluginId);
   }
 
   if (registerRightPanel) {

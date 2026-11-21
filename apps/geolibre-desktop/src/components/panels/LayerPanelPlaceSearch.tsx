@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -22,12 +23,19 @@ import {
   useLayersWhen,
 } from "@geolibre/core";
 import type { MapEngine } from "@geolibre/map";
+import {
+  type GeoLibreSearchProvider,
+  type GeoLibreSearchResult,
+  getSearchProvidersSnapshot,
+  subscribeSearchProviders,
+} from "@geolibre/plugins";
 import { Input } from "@geolibre/ui";
-import { Hexagon, Loader2, LocateFixed, MapPin, Search, Table2, X } from "lucide-react";
+import { Hexagon, Loader2, LocateFixed, MapPin, MapPinned, Search, Table2, X } from "lucide-react";
 import { formatLatLon, parseLatLon } from "../../lib/coordinates";
 import { geocodeResultCamera, POINT_RESULT_ZOOM } from "../../lib/geocode-camera";
 import { parseGridReference } from "../../lib/grid-reference";
 import { type H3CellMatch, parseH3Cell } from "../../lib/h3-search";
+import { type SearchProviderGroup, querySearchProviders } from "../../lib/search-providers";
 import {
   type FeatureSearchGroup,
   type FeatureSearchMatch,
@@ -76,7 +84,29 @@ type SearchRow =
     }
   | { kind: "coordinate"; match: GeocodeMatch }
   | { kind: "h3"; match: GeocodeMatch; cell: H3CellMatch }
-  | { kind: "feature"; match: FeatureSearchMatch };
+  | { kind: "feature"; match: FeatureSearchMatch }
+  | { kind: "provider"; providerId: string; result: GeoLibreSearchResult };
+
+/**
+ * Move the camera onto a point. The globe keeps its instant placement: its
+ * animated camera path differs in flat scene modes, and search previously used
+ * the store's applyView path rather than a flight there.
+ */
+function moveToPoint(engine: MapEngine, center: [number, number], zoom?: number): void {
+  // eslint-disable-next-line local/no-renderer-kind-checks -- the Cesium camera's flight path, not a capability, is why the globe jumps instead
+  if (engine.kind === "cesium") {
+    const store = useAppStore.getState();
+    store.setMapView({
+      center,
+      zoom: zoom ?? Math.max(store.mapView.zoom, POINT_RESULT_ZOOM),
+    });
+  } else {
+    engine.flyTo({
+      center,
+      zoom: zoom ?? Math.max(engine.readView().zoom, POINT_RESULT_ZOOM),
+    });
+  }
+}
 
 /**
  * A compact "Search places" geocoder input pinned to the bottom of the Layers
@@ -90,6 +120,11 @@ type SearchRow =
  * - **Places.** The query is forward-geocoded through the configured provider
  *   and the matches are listed below the data groups; selecting one flies the
  *   map to the place and drops a marker.
+ *
+ * Plugins can add result groups of their own between the two, by registering a
+ * search provider (see `GeoLibreAppAPI.registerSearchProvider`). Selecting one
+ * of those results flies to it, drops the same marker a place gets, and calls
+ * the provider's `onSelect`.
  *
  * Three query forms bypass the geocoder entirely and resolve locally: a lat/lon
  * coordinate (see `coordinates.ts`), an MGRS/USNG or UTM grid reference (see
@@ -111,6 +146,14 @@ export function LayerPanelPlaceSearch({
   const layers = useLayersWhen(query.trim().length >= MIN_FEATURE_QUERY_LENGTH);
   const [placeRows, setPlaceRows] = useState<SearchRow[]>([]);
   const [featureGroups, setFeatureGroups] = useState<FeatureSearchGroup[]>([]);
+  // Result groups contributed by plugin search providers. The snapshot's array
+  // identity only changes when a provider is (un)registered, so an app with none
+  // never re-renders on their account.
+  const providers = useSyncExternalStore(
+    subscribeSearchProviders,
+    () => getSearchProvidersSnapshot().providers,
+  );
+  const [providerGroups, setProviderGroups] = useState<SearchProviderGroup[]>([]);
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -234,6 +277,40 @@ export function LayerPanelPlaceSearch({
     return () => clearTimeout(handle);
   }, [query, layers, layerGroups]);
 
+  // Plugin search providers: queried on the same short debounce as the local
+  // scan, all sharing one AbortController that any new query, a selection, or
+  // unmounting aborts. The groups replace the previous set only when every
+  // provider has answered or timed out, so a slow one never leaves a half-drawn
+  // list. With no provider registered this only clears (a no-op) and returns.
+  useEffect(() => {
+    if (settledQuery.current !== null) return;
+    if (providers.length === 0) {
+      setProviderGroups((groups) => (groups.length ? [] : groups));
+      return;
+    }
+    if (!openRef.current && document.activeElement !== inputRef.current) return;
+    const trimmed = query.trim();
+    // A coordinate or an H3 cell resolves locally and keeps the box to itself.
+    if (trimmed.length < MIN_QUERY_LENGTH || parseH3Cell(trimmed) || parseLatLon(trimmed)) {
+      setProviderGroups((groups) => (groups.length ? [] : groups));
+      return;
+    }
+    const controller = new AbortController();
+    const handle = setTimeout(() => {
+      if (settledQuery.current !== null) return;
+      void querySearchProviders(providers, trimmed, controller.signal).then((groups) => {
+        if (controller.signal.aborted || settledQuery.current !== null) return;
+        setProviderGroups(groups);
+        setActiveIndex(-1);
+        if (groups.length > 0 && document.activeElement === inputRef.current) setOpen(true);
+      });
+    }, FEATURE_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(handle);
+      controller.abort();
+    };
+  }, [query, providers]);
+
   useEffect(() => {
     if (settledQuery.current !== null) return;
     const trimmed = query.trim();
@@ -325,22 +402,33 @@ export function LayerPanelPlaceSearch({
   // something under it — a list, a spinner, or a message. Keeping it tied to
   // what renders rather than to the two minimum-length constants agreeing means
   // a query short enough for one half but not the other cannot strand it.
-  const showPlaceHeading = featureGroups.length > 0 && (showPlaceRows || status !== "idle");
+  const showPlaceHeading =
+    (featureGroups.length > 0 || providerGroups.length > 0) && (showPlaceRows || status !== "idle");
 
   /**
-   * Every selectable row, data groups first, in the order they render. Place
-   * rows join only when they are actually on screen: a row the keyboard can
-   * reach but the user cannot see would move the active highlight into nothing
-   * and point `aria-activedescendant` at an id with no element.
+   * Every selectable row, data groups first (layer features, then plugin
+   * providers), in the order they render. Place rows join only when they are
+   * actually on screen: a row the keyboard can reach but the user cannot see
+   * would move the active highlight into nothing and point
+   * `aria-activedescendant` at an id with no element.
    */
   const rows = useMemo<SearchRow[]>(
     () => [
       ...featureGroups.flatMap((group) =>
         group.matches.map((match): SearchRow => ({ kind: "feature", match })),
       ),
+      ...providerGroups.flatMap((group) =>
+        group.results.map(
+          (result): SearchRow => ({
+            kind: "provider",
+            providerId: group.providerId,
+            result,
+          }),
+        ),
+      ),
       ...(showPlaceRows ? placeRows : []),
     ],
-    [featureGroups, placeRows, showPlaceRows],
+    [featureGroups, providerGroups, placeRows, showPlaceRows],
   );
 
   /** Reset the input and dropdown after a row has been acted on. */
@@ -354,6 +442,7 @@ export function LayerPanelPlaceSearch({
     setQuery(label);
     setPlaceRows([]);
     setFeatureGroups([]);
+    setProviderGroups([]);
     setActiveIndex(-1);
     setStatus("idle");
     setOpen(false);
@@ -428,6 +517,31 @@ export function LayerPanelPlaceSearch({
           mapControllerRef.current?.highlightFeature(layer, row.match.featureId, { fit: true });
         }
         settle(row.match.value);
+        return;
+      }
+
+      if (row.kind === "provider") {
+        const { result } = row;
+        if (engine) {
+          const center: [number, number] = [result.lng, result.lat];
+          searchDisposeRef.current = engine.showSearchResult({
+            type: "Point",
+            coordinates: center,
+          });
+          if (result.bbox) engine.fitBounds(result.bbox);
+          else moveToPoint(engine, center, result.zoom);
+        }
+        // Look the provider up again: it may have been unregistered (its plugin
+        // deactivated) between the query and the click, and then has no say.
+        const current = getSearchProvidersSnapshot().providers.find(
+          (provider: GeoLibreSearchProvider) => provider.id === row.providerId,
+        );
+        try {
+          current?.onSelect?.(result);
+        } catch (error) {
+          console.warn(`Search provider '${row.providerId}' threw in onSelect.`, error);
+        }
+        settle(result.label);
         return;
       }
 
@@ -507,6 +621,7 @@ export function LayerPanelPlaceSearch({
     setQuery("");
     setPlaceRows([]);
     setFeatureGroups([]);
+    setProviderGroups([]);
     setActiveIndex(-1);
     setStatus("idle");
     setOpen(false);
@@ -539,6 +654,8 @@ export function LayerPanelPlaceSearch({
     >
       {row.kind === "feature" ? (
         <Table2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      ) : row.kind === "provider" ? (
+        <MapPinned className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       ) : row.kind === "h3" ? (
         <Hexagon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       ) : row.kind === "coordinate" ? (
@@ -554,6 +671,15 @@ export function LayerPanelPlaceSearch({
           <span className="block truncate text-[10px] text-muted-foreground">
             {row.match.field}
           </span>
+        </span>
+      ) : row.kind === "provider" ? (
+        <span className="min-w-0 flex-1">
+          <span className="line-clamp-2 block">{row.result.label}</span>
+          {row.result.detail ? (
+            <span className="block truncate text-[10px] text-muted-foreground">
+              {row.result.detail}
+            </span>
+          ) : null}
         </span>
       ) : (
         <span className="line-clamp-2">
@@ -579,7 +705,15 @@ export function LayerPanelPlaceSearch({
     offsets.push(index === 0 ? 0 : offsets[index - 1] + featureGroups[index - 1].matches.length);
     return offsets;
   }, []);
-  /** Row index of the first place row: every feature row precedes them. */
+  // The provider groups follow the feature rows and precede the place rows.
+  const providerStart = featureGroups.reduce((total, group) => total + group.matches.length, 0);
+  const providerOffsets = providerGroups.reduce<number[]>((offsets, group, index) => {
+    offsets.push(
+      index === 0 ? providerStart : offsets[index - 1] + providerGroups[index - 1].results.length,
+    );
+    return offsets;
+  }, []);
+  /** Row index of the first place row: every feature and provider row precedes them. */
   const placeOffset = rows.length - placeRows.length;
 
   return (
@@ -605,6 +739,25 @@ export function LayerPanelPlaceSearch({
                 <div className="py-1">
                   {group.matches.map((match, offset) =>
                     renderRow({ kind: "feature", match }, groupOffsets[groupIndex] + offset),
+                  )}
+                </div>
+              </div>
+            ))}
+            {providerGroups.map((group, groupIndex) => (
+              <div key={`provider-${group.providerId}`} role="group" aria-label={group.title}>
+                <div className="flex items-baseline gap-1 border-b bg-muted/50 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <span className="truncate">{group.title}</span>
+                </div>
+                <div className="py-1">
+                  {group.results.map((result, offset) =>
+                    renderRow(
+                      {
+                        kind: "provider",
+                        providerId: group.providerId,
+                        result,
+                      },
+                      providerOffsets[groupIndex] + offset,
+                    ),
                   )}
                 </div>
               </div>

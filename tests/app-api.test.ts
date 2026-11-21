@@ -35,6 +35,7 @@ import {
   registerFileHandler,
   unregisterFileHandler,
 } from "../packages/plugins/src/file-handler-registry";
+import { registerSearchProvider } from "../packages/plugins/src/search-provider-registry";
 import { GEO_EDITOR_PLUGIN_ID } from "../packages/plugins/src/plugin-ids";
 import { PluginManager } from "../packages/plugins/src/plugin-manager";
 import {
@@ -204,6 +205,7 @@ function fakeHost(overrides: Partial<AppApiHost> = {}): { host: AppApiHost; call
     unregisterMenuContribution,
     registerFileHandler,
     unregisterFileHandler,
+    registerSearchProvider,
     registerFloatingPanel,
     unregisterFloatingPanel,
     openFloatingPanel,

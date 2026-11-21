@@ -1733,6 +1733,17 @@ export interface GeoLibreAppAPI {
   /** Remove a previously registered toolbar menu. */
   unregisterToolbarMenu?: (id: string) => void;
   /**
+   * Register a search provider: a source of results the layer panel's search
+   * box lists as its own titled group, below the loaded layers' feature matches
+   * and above the geocoded places. Selecting a result moves the map to it, then
+   * calls the provider's `onSelect`. Returns an unregister function (call it
+   * from `deactivate`); the host also drops a plugin's providers when the
+   * plugin is deactivated. Re-registering the same id replaces the provider.
+   * Typed optional for forward-compatibility with hosts that have no search box,
+   * so call it with optional chaining.
+   */
+  registerSearchProvider?: (provider: GeoLibreSearchProvider) => () => void;
+  /**
    * Add items to one of the built-in toolbar menus (Add Data, Processing,
    * Controls), the way a QGIS plugin adds itself to the Vector or Raster menu.
    * The host nests the items under a submenu named after the plugin, after the
@@ -1771,6 +1782,64 @@ export interface GeoLibreAppAPI {
   closeFloatingPanel?: (id: string) => void;
   /** Ids of the currently open floating panels, in stacking order. */
   getOpenFloatingPanels?: () => string[];
+}
+
+/**
+ * One result a {@link GeoLibreSearchProvider} returns to the layer panel's
+ * search box.
+ */
+export interface GeoLibreSearchResult {
+  /** Stable id, unique within the provider. */
+  id: string;
+  /** Text shown for the result, and written into the search box on selection. */
+  label: string;
+  /** Optional secondary line shown under the label. */
+  detail?: string;
+  /** Longitude in degrees (WGS84). */
+  lng: number;
+  /** Latitude in degrees (WGS84). */
+  lat: number;
+  /**
+   * Optional extent `[west, south, east, north]` in degrees. When present the
+   * map fits to it on selection instead of flying to the point.
+   */
+  bbox?: [number, number, number, number];
+  /**
+   * Zoom to fly to when there is no {@link bbox}. Defaults to the larger of
+   * the current zoom and 12.
+   */
+  zoom?: number;
+}
+
+/**
+ * A plugin-owned source of layer-panel search results. See
+ * {@link GeoLibreAppAPI.registerSearchProvider}.
+ */
+export interface GeoLibreSearchProvider {
+  /** Stable unique id used to replace or unregister the provider. */
+  id: string;
+  /** Heading of the provider's result group. A getter may follow the app language. */
+  title: string | (() => string);
+  /** Shortest trimmed query the provider is asked about. Defaults to 2. */
+  minQueryLength?: number;
+  /** Most results shown from this provider. The host caps this at 5. */
+  maxResults?: number;
+  /**
+   * Return the results for `query`. The host calls this after a short typing
+   * pause, and abandons a provider that has not answered within 250 ms, so keep
+   * it fast (search an in-memory index rather than the network). `signal`
+   * aborts when the query changes or the search box is cleared. A thrown error
+   * or a rejection only skips this provider.
+   */
+  search(
+    query: string,
+    context: { signal: AbortSignal },
+  ): GeoLibreSearchResult[] | Promise<GeoLibreSearchResult[]>;
+  /**
+   * Called after the host has moved the map to the selected result and dropped
+   * the search marker on it.
+   */
+  onSelect?(result: GeoLibreSearchResult): void;
 }
 
 /**
