@@ -27,7 +27,24 @@ import {
   pmtilesLayerKinds,
   pmtilesVectorLayerId,
 } from "./pmtiles-layer";
-import { encodeVectorTileLayerPart } from "./vector-tile-layer-ids";
+import {
+  getVectorTileSourceLayers,
+  vectorTileCircleLayerId,
+  vectorTileLabelLayerId,
+  vectorTileLayerId,
+  vectorTileLineLayerId,
+  vectorTileScopedSourceLayer,
+  vectorTileStyleLayerIds,
+} from "./vector-tile-layer-ids";
+// Re-exported for the callers that reach these through `layer-sync`; the pure id
+// builders live in `vector-tile-layer-ids` so MapLibre-free code can use them.
+export {
+  vectorTileCircleLayerId,
+  vectorTileLabelLayerId,
+  vectorTileLayerId,
+  vectorTileLineLayerId,
+  vectorTileStyleLayerIds,
+} from "./vector-tile-layer-ids";
 import {
   DEDUPED_LABEL_PROPERTY,
   GEOMAN_TEXT_PROPERTY,
@@ -3107,8 +3124,11 @@ function syncVectorTileLayer(map: maplibregl.Map, layer: GeoLibreLayer, beforeId
   if (!url && !(tiles && tiles.length > 0)) return;
   const existingSource = map.getSource(src) as VectorSourceLike | undefined;
   if (!existingSource) {
+    // Carry a source attribution (a plugin's addVectorTileLayer option) into
+    // MapLibre's attribution control, as the GeoJSON sources do.
+    const attribution = stringSource(layer.source.attribution);
     if (url) {
-      map.addSource(src, { type: "vector", url });
+      map.addSource(src, { type: "vector", url, ...(attribution ? { attribution } : {}) });
     } else {
       const bounds = layer.source.bounds;
       map.addSource(src, {
@@ -3119,6 +3139,7 @@ function syncVectorTileLayer(map: maplibregl.Map, layer: GeoLibreLayer, beforeId
         ...(Array.isArray(bounds) && bounds.length === 4
           ? { bounds: bounds as [number, number, number, number] }
           : {}),
+        ...(attribution ? { attribution } : {}),
       });
     }
   } else {
@@ -3227,9 +3248,104 @@ function syncVectorTileLayer(map: maplibregl.Map, layer: GeoLibreLayer, beforeId
         beforeId,
       );
     }
+    const labelId = syncVectorTileLabelLayer(
+      map,
+      layer,
+      src,
+      sourceLayer,
+      layerPart,
+      visibility,
+      beforeId,
+    );
+    if (labelId) currentLayerIds.add(labelId);
   }
 
   removeStaleVectorTileLayers(map, layer.id, currentLayerIds);
+}
+
+/**
+ * The attribute-driven labels symbol layer for one `"vector-tiles"` source
+ * layer, the tiled counterpart of {@link applyAttributeLabelLayer}. It shares
+ * that path's text field and data-defined overrides, so `setLayerStyle`
+ * behaves the same on a GeoJSON and a vector-tiles layer, but has no
+ * aggregated (deduplicated) label source: that is built from locally held
+ * features, which a tileset never has. Each source layer gets its own scoped
+ * id, so a multi-source-layer tileset does not collide on one symbol layer.
+ *
+ * @returns The label layer's id when one is drawn, so the caller keeps it out
+ *   of stale-layer cleanup; `undefined` when labels are off.
+ */
+function syncVectorTileLabelLayer(
+  map: maplibregl.Map,
+  layer: GeoLibreLayer,
+  src: string,
+  sourceLayer: string,
+  layerPart: string | undefined,
+  visibility: "visible" | "none",
+  beforeId?: string,
+): string | undefined {
+  const id = vectorTileLabelLayerId(layer.id, layerPart);
+  const labels: LabelStyle = {
+    ...DEFAULT_LAYER_STYLE.labels,
+    ...styleValue(layer.style, "labels"),
+  };
+  if (
+    layer.style.extrusionEnabled ||
+    !labels.enabled ||
+    (!labels.expression.trim() && !labels.field)
+  ) {
+    removeIfExists(map, id);
+    return undefined;
+  }
+  const textField = attributeLabelTextField(labels, null);
+  if (textField === "") {
+    removeIfExists(map, id);
+    return undefined;
+  }
+  const labelZoom = intersectZoomRange(
+    {
+      minzoom: clampLayerZoom(labels.minZoom, MIN_LAYER_ZOOM),
+      maxzoom: clampLayerZoom(labels.maxZoom, MAX_LAYER_ZOOM),
+    },
+    layer.style,
+  );
+  const { labelBaseFilter, sizeOverride, colorOverride, opacityOverride, priorityOverride } =
+    attributeLabelOverrides(labels, null);
+  ensureLayer(
+    map,
+    id,
+    {
+      id,
+      type: "symbol",
+      source: src,
+      "source-layer": sourceLayer,
+      ...labelZoom,
+      filter: withFeatureFilters(layer, labelBaseFilter),
+      layout: {
+        "text-field": textField,
+        "text-font": textFontForMapStyle(map),
+        "text-size": sizeOverride ?? Math.max(1, labels.size),
+        "symbol-placement": labels.placement === "line" ? "line" : "point",
+        "text-allow-overlap": labels.allowOverlap,
+        "text-ignore-placement": labels.allowOverlap,
+        "text-anchor": labels.anchor,
+        "text-offset": [labels.offsetX, labels.offsetY],
+        "text-rotate": labels.rotation,
+        "text-max-width": Math.max(1, labels.maxWidth),
+        "text-transform": labels.transform,
+        "symbol-sort-key": priorityOverride as unknown as PropertyValueSpecification<number>,
+        visibility,
+      },
+      paint: {
+        "text-color": colorOverride ?? labels.color,
+        "text-halo-color": labels.haloColor,
+        "text-halo-width": Math.max(0, labels.haloWidth),
+        "text-opacity": opacityOverride ?? layer.opacity,
+      },
+    },
+    beforeId,
+  );
+  return id;
 }
 
 function syncMbtilesLayer(map: maplibregl.Map, layer: GeoLibreLayer, beforeId?: string): void {
@@ -3439,46 +3555,6 @@ export function mbtilesAllStyleLayerIds(layer: GeoLibreLayer): string[] {
   ]);
 }
 
-export function vectorTileLayerId(
-  layerId: string,
-  extrusionEnabled = false,
-  sourceLayer?: string,
-): string {
-  if (sourceLayer) {
-    return `layer-${layerId}-vector-${encodeVectorTileLayerPart(sourceLayer)}-${extrusionEnabled ? "extrusion" : "fill"}`;
-  }
-  return `layer-${layerId}-${extrusionEnabled ? "vector-extrusion" : "vector"}`;
-}
-
-export function vectorTileLineLayerId(layerId: string, sourceLayer?: string): string {
-  if (sourceLayer) {
-    return `layer-${layerId}-vector-${encodeVectorTileLayerPart(sourceLayer)}-line`;
-  }
-  return `layer-${layerId}-vector-line`;
-}
-
-export function vectorTileCircleLayerId(layerId: string, sourceLayer?: string): string {
-  if (sourceLayer) {
-    return `layer-${layerId}-vector-${encodeVectorTileLayerPart(sourceLayer)}-circle`;
-  }
-  return `layer-${layerId}-vector-circle`;
-}
-
-export function vectorTileStyleLayerIds(layer: GeoLibreLayer): string[] {
-  if (layer.type !== "vector-tiles") return [];
-  return getVectorTileSourceLayers(layer).flatMap((sourceLayer) => {
-    const layerPart = vectorTileScopedSourceLayer(layer, sourceLayer);
-    if (layer.style.extrusionEnabled) {
-      return [vectorTileLayerId(layer.id, true, layerPart)];
-    }
-    return [
-      vectorTileCircleLayerId(layer.id, layerPart),
-      vectorTileLineLayerId(layer.id, layerPart),
-      vectorTileLayerId(layer.id, false, layerPart),
-    ];
-  });
-}
-
 function vectorTileAllStyleLayerIds(layer: GeoLibreLayer): string[] {
   if (layer.type !== "vector-tiles") return [];
   return getVectorTileSourceLayers(layer).flatMap((sourceLayer) => {
@@ -3488,28 +3564,9 @@ function vectorTileAllStyleLayerIds(layer: GeoLibreLayer): string[] {
       vectorTileLineLayerId(layer.id, layerPart),
       vectorTileLayerId(layer.id, false, layerPart),
       vectorTileLayerId(layer.id, true, layerPart),
+      vectorTileLabelLayerId(layer.id, layerPart),
     ];
   });
-}
-
-function getVectorTileSourceLayers(layer: GeoLibreLayer): string[] {
-  const sourceLayers = layer.source.sourceLayers ?? layer.metadata.sourceLayers;
-  if (Array.isArray(sourceLayers)) {
-    return sourceLayers.filter(
-      (sourceLayer): sourceLayer is string =>
-        typeof sourceLayer === "string" && sourceLayer.length > 0,
-    );
-  }
-
-  const sourceLayer = layer.source.sourceLayer;
-  return typeof sourceLayer === "string" && sourceLayer.length > 0 ? [sourceLayer] : [];
-}
-
-function vectorTileScopedSourceLayer(
-  layer: GeoLibreLayer,
-  sourceLayer: string,
-): string | undefined {
-  return getVectorTileSourceLayers(layer).length > 1 ? sourceLayer : undefined;
 }
 
 function removeStaleVectorTileLayers(
@@ -3747,6 +3804,7 @@ export function removeLayerFromMap(
     vectorTileLineLayerId(layerId),
     vectorTileLayerId(layerId),
     vectorTileLayerId(layerId, true),
+    vectorTileLabelLayerId(layerId),
   ]) {
     if (map.getLayer(id)) map.removeLayer(id);
   }

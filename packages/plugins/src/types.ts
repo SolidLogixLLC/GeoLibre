@@ -222,6 +222,11 @@ export interface GeoLibreTileLayerOptions {
 export interface GeoLibreVectorTileLayerOptions {
   /** The tileset's source layer names to draw (at least one). */
   sourceLayers: string[];
+  /**
+   * HTML attribution shown in MapLibre's attribution control. Fork-only
+   * addition; absent, the layer credits nothing.
+   */
+  attribution?: string;
   /** Tile extent as `[west, south, east, north]` in WGS84 degrees. */
   bounds?: [number, number, number, number];
   /** Minimum zoom at which tiles are requested (0–24). */

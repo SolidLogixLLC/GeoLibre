@@ -161,6 +161,7 @@ export function addPluginVectorTileLayer(
   // Plugins can be plain JavaScript, so options may be missing altogether.
   const {
     sourceLayers: requestedSourceLayers,
+    attribution,
     bounds,
     minzoom,
     maxzoom,
@@ -180,6 +181,9 @@ export function addPluginVectorTileLayer(
     );
   }
   validateOpacity(opacity);
+  if (attribution !== undefined && typeof attribution !== "string") {
+    throw new Error(`${METHOD}: options.attribution must be a string.`);
+  }
   const metadata = pluginLayerMetadata(METHOD, requestedMetadata);
   const headers =
     requestedHeaders === undefined ? null : validateRequestHeaders(METHOD, requestedHeaders);
@@ -198,6 +202,7 @@ export function addPluginVectorTileLayer(
       ...(bounds ? { bounds: [...bounds] } : {}),
       ...(minzoom !== undefined ? { minzoom } : {}),
       ...(maxzoom !== undefined ? { maxzoom } : {}),
+      ...(attribution?.trim() ? { attribution } : {}),
     },
     {
       ...withoutRenderRouting(metadata),

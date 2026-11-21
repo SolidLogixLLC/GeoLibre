@@ -1177,6 +1177,7 @@ const cleanup = app.registerFeatureInteraction?.({
 ```typescript
 export interface GeoLibreVectorTileLayerOptions {
   sourceLayers: string[]; // at least one
+  attribution?: string; // shown in the map's attribution control (fork addition)
   bounds?: [number, number, number, number]; // [west, south, east, north] in WGS84
   minzoom?: number; // 0-24
   maxzoom?: number; // 0-24; overzoomed beyond it
@@ -1192,6 +1193,8 @@ const layerId = app.addVectorTileLayer?.("Sites", "https://tiles.example.org/sit
   maxzoom: 14,
 });
 ```
+
+The layer's attribute labels (Style panel, Labels) are drawn from the tiles too, one label layer per source layer. `registerFeatureInteraction` works on a vector tile layer: hover highlighting and the tooltip need each tile feature to carry an `id`.
 
 The URL must be absolute HTTP(S), and a template needs all three of `{z}`, `{x}` and `{y}`, written in lowercase (a URL with none is read as TileJSON). Other placeholders such as `{s}` or `{-y}` aren't recognized; for a TMS tileset, serve or rewrite an XYZ template. It throws when that isn't so, `name` is blank or not a string, `sourceLayers` is missing, empty or holds a blank name, `bounds` is not four numbers, the zoom range is out of bounds or inverted, or `opacity` is outside 0–1. The layer's `metadata.sourceKind` is `"plugin-vector-tiles"`; metadata keys GeoLibre uses to decide how a layer is drawn (`sourceKind`, `customLayerType`, `nativeLayerIds`, `sourceIds`, `sourceId`, `externalNativeLayer`, `externalDeckLayer`, `controlOwnsPaint`, `nativeFillExtrusion`) are dropped from `options.metadata`. With a TileJSON URL, MapLibre reads the zoom range from the TileJSON, so `minzoom` and `maxzoom` throw there; `bounds` is still kept as the extent **Zoom to layer** uses. `bounds` must lie within ±180° and ±90° with `west` ≤ `east` and `south` ≤ `north` (an extent can't cross the antimeridian). Tiles are drawn on MapLibre, Mapbox and the ArcGIS renderer, and draped on the Cesium globe, like other vector tile layers.
 
