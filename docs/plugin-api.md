@@ -2113,7 +2113,7 @@ while a project is being restored (so a plugin's own `applyProjectState` never
 dirties the project it just loaded), when a different project was opened while the
 call was waiting, when the serialized state is unchanged,
 and when the desktop setting "Autosave changes made inside plugins"
-(`projects.pluginStateAutosave`) is off. The setting defaults to on and is
+(`projects.pluginStateAutosave`) is off. The setting defaults to off in upstream builds and is
 inert unless a plugin calls the method. Plugin settings stay local: this does
 not trigger a collaboration broadcast.
 

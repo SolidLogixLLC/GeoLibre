@@ -22,7 +22,7 @@ import {
   resolveReadableUrl,
 } from "@geolibre/core";
 import type { GeoLibreLayer } from "@geolibre/core";
-import type { CesiumEngine,getPrimaryCesiumControlHost, MapEngine } from "@geolibre/map";
+import type { CesiumEngine, getPrimaryCesiumControlHost, MapEngine } from "@geolibre/map";
 import type * as GeoLibrePlugins from "@geolibre/plugins";
 import type {
   GeoLibreActiveMapTool,
