@@ -1,4 +1,4 @@
-import { isStyleLibraryTargetLayer, useAppStore } from "@geolibre/core";
+import { isStyleLibraryTargetLayer, useAppStore, type LayerStyle } from "@geolibre/core";
 import { importStyleText } from "@geolibre/map/style-import";
 import type { GeoLibreImportLayerStyleResult } from "@geolibre/plugins";
 
@@ -32,5 +32,9 @@ export function createPluginLayerStyleActions() {
       useAppStore.getState().updateLayer(layerId, { style: imported.apply(layer.style) });
       return { ok: true, warnings: imported.warnings };
     },
+    // Fork addition: merge a partial style patch (a `Partial<LayerStyle>`),
+    // where importLayerStyle takes SLD/QML/Mapbox text.
+    setLayerStyle: (layerId: string, style: Partial<LayerStyle>): void =>
+      useAppStore.getState().setLayerStyle(layerId, style),
   };
 }

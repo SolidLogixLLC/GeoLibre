@@ -245,6 +245,7 @@ export interface GeoLibreAppAPI {
   addLayerGroup?: (name?: string, layerIds?: string[]) => string;
   listLayerGroups?: () => GeoLibreLayerGroupSummary[];
   moveLayersToGroup?: (layerIds: string[], groupId: string | null) => void;
+  setLayerStyle?: (layerId: string, style: Partial<LayerStyle>) => void;
   moveLayerToGroup?: (layerId: string, groupId: string | null, beforeLayerId?: string | null) => void;
   subscribeLayers?: (listener: (layers: GeoLibreLayer[], previousLayers: GeoLibreLayer[]) => void) => () => void;
   moveLayerGroupToGroup?: (id: string, parentId: string | null) => void;
@@ -975,6 +976,8 @@ if (result && !result.ok)
 ```
 
 `result.warnings` lists what the style asked for that GeoLibre could not represent. On failure, `reason` is `invalid` when the text is not a style in any format read, `no-match` when it parsed but describes no symbology the layer can wear, `unsupported-layer` when the layer is not a vector layer; the layer is left untouched.
+
+`setLayerStyle(layerId, patch)` is the counterpart for a plugin that already holds style values rather than style text: it merges a `Partial<LayerStyle>` into the layer's style through the store, like a change made in the Style panel. Call it with optional chaining (a fork addition).
 
 ## Raster and tile layers
 

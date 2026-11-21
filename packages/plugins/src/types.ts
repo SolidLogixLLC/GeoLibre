@@ -766,6 +766,13 @@ export interface GeoLibreAppAPI {
    * so the panel and the map stay in step. Throws for an unknown layer id.
    */
   setLayerVisibility?: (layerId: string, visible: boolean) => void;
+  /**
+   * Merge a partial style patch into an existing layer style. Typed optional
+   * for forward-compatibility with host variants, so call it with optional
+   * chaining. Fork-only: {@link importLayerStyle} takes SLD/QML/Mapbox text,
+   * not a {@link LayerStyle} patch.
+   */
+  setLayerStyle?: (layerId: string, style: Partial<LayerStyle>) => void;
   getSelectedFeatures?: () => Feature<Geometry | null>[];
   getSelectedLayerId?: () => string | null;
   readRasterWindow?: (

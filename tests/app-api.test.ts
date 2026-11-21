@@ -1773,3 +1773,17 @@ describe("plugin app API fork layer helpers", () => {
     assert.equal(useAppStore.getState().layers.find((l) => l.id === b)?.groupId, undefined);
   });
 });
+
+describe("plugin app API setLayerStyle", () => {
+  it("merges a partial style patch into the layer through the store", () => {
+    useAppStore.getState().newProject({ name: "App API style" });
+    const api = createAppAPI(undefined, fakeHost().host);
+    const empty = { type: "FeatureCollection" as const, features: [] };
+    const id = useAppStore.getState().addGeoJsonLayer("L", empty);
+    const before = useAppStore.getState().layers[0].style.strokeWidth;
+    api.setLayerStyle(id, { strokeColor: "#123456" });
+    const style = useAppStore.getState().layers[0].style;
+    assert.equal(style.strokeColor, "#123456");
+    assert.equal(style.strokeWidth, before, "unpatched fields keep their values");
+  });
+});
