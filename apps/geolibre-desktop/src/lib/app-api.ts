@@ -35,6 +35,7 @@ import type {
   GeoLibreDownloadFolder,
   GeoLibreEditSessionChange,
   GeoLibreExternalNativeLayerRegistration,
+  GeoLibreFeatureInteractionOptions,
   GeoLibreFileDialogOptions,
   GeoLibreGeoJsonLayerOptions,
   GeoLibrePointCloudLayerOptions,
@@ -70,6 +71,7 @@ import {
   readPluginAssetForLoadedPlugin,
   resolvePluginAssetUrlForLoadedPlugin,
 } from "./external-plugins";
+import { registerFeatureInteraction } from "./feature-interaction";
 import { startGeometryEditSession } from "./geometry-edit-session";
 import { setPluginUrlParameters } from "./live-url";
 import { isDesktopRuntime } from "./is-mobile";
@@ -754,6 +756,8 @@ export function createAppAPI(
         : null;
     },
     getCesiumScene: () => host.getCesiumScene(mapControllerRef?.current),
+    registerFeatureInteraction: (options: GeoLibreFeatureInteractionOptions) =>
+      registerFeatureInteraction(mapControllerRef?.current?.getMap() ?? null, options),
     getProjectSnapshot: () => host.buildProjectSnapshot(mapControllerRef ?? { current: null }),
     openExternalUrl: (url: string) => void openExternalLink(url),
     openProjectFromUrl: (url: string, signal?: AbortSignal) =>

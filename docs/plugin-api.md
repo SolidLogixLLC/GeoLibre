@@ -328,6 +328,9 @@ export interface GeoLibreAppAPI {
   // canvas, readView), or null when the primary map is not a globe. The globe's
   // counterpart to getMap for plugins that declare engines: ["maplibre", "cesium"].
   getCesiumScene?: () => import("@geolibre/map").CesiumSceneHandle | null;
+  registerFeatureInteraction?: (
+    options: GeoLibreFeatureInteractionOptions
+  ) => () => void;
   addMapControl: (
     control: IControl,
     position?: GeoLibreMapControlPosition
@@ -1119,6 +1122,20 @@ const layerId = await app.addWfsLayer?.("Roads", {
 `addTileLayer`/`addWmtsLayer`/`addWmsLayer` expect **pre-rendered tiles** (e.g. a COG already served through a tiler such as titiler as an XYZ endpoint). `addCogLayer` is different: it loads the **GeoTIFF itself** and renders it client-side, exposing band selection, rescale, colormap, and nodata in the raster panel. It is async (it fetches the file's header), so it returns a `Promise<string>` and rejects if the COG cannot be read.
 
 The helpers are typed optional for forward-compatibility with host variants, so call them with optional chaining (`app.addTileLayer?.(...)`).
+
+`registerFeatureInteraction` adds host-managed pointer feedback and a
+plain-text tooltip to a registered layer. Cleanup is explicit and should be
+called from the plugin's `deactivate` hook.
+
+```typescript
+const cleanup = app.registerFeatureInteraction?.({
+  layerId: geoJsonLayerId,
+  titleField: "name",
+  fields: [{ field: "slip_rate", label: "Slip rate" }],
+  cursor: "pointer",
+  hoverStrokeWidthDelta: 2,
+});
+```
 
 > **Desktop (Tauri) note:** The desktop app enforces a Content Security Policy. Its `connect-src` allows any `https:` or `http:` host, so tile and data requests from a plugin reach their server, but `script-src` only allows the app itself, `blob:` URLs and a short list of version-pinned CDN paths. A plugin that injects a `<script>` or `import()`s a module from another host is blocked; bundle that code into the plugin instead. A bundled (first-party) plugin can add the path to `script-src` in `apps/geolibre-desktop/src-tauri/tauri.conf.json` (see [Desktop CSP `script-src` allowlist](maintenance.md#desktop-csp-script-src-allowlist)). The web build is unaffected.
 

@@ -105,6 +105,26 @@ export interface GeoLibreGeoJsonLayerOptions {
   attribution?: string;
 }
 
+/** One property displayed by a plugin-registered hover tooltip. */
+export interface GeoLibreFeatureTooltipField {
+  field: string;
+  label: string;
+}
+
+/**
+ * Host-managed pointer/hover behavior for a persistent vector layer.
+ * Interaction is deliberately optional and read-only; registering it returns
+ * a cleanup function that plugins call from `deactivate`.
+ */
+export interface GeoLibreFeatureInteractionOptions {
+  layerId: string;
+  titleField?: string;
+  fields: GeoLibreFeatureTooltipField[];
+  cursor?: "pointer";
+  hoverStrokeWidthDelta?: number;
+  hoverFillOpacity?: number;
+}
+
 export interface GeoLibreExternalNativeLayerRegistration {
   id: string;
   name: string;
@@ -1378,6 +1398,8 @@ export interface GeoLibreAppAPI {
    * `@cesium/engine` namespace, so a plugin never imports Cesium itself.
    */
   getCesiumScene?: () => CesiumSceneHandle | null;
+  /** Register host-managed hover highlighting and a field tooltip. */
+  registerFeatureInteraction?: (options: GeoLibreFeatureInteractionOptions) => () => void;
   /**
    * Open an http(s) URL in the system browser. Needed because the Tauri
    * desktop webview ignores `window.open`/`target="_blank"` and would open the
