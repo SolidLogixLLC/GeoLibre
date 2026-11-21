@@ -149,6 +149,7 @@ function fakeHost(overrides: Partial<AppApiHost> = {}): { host: AppApiHost; call
     persistProjectPluginState: (previousJson: string) => {
       calls.persisted.push(previousJson);
     },
+    notifyProjectStateChanged: () => undefined,
     reportPluginError: (pluginId: string, action: string, error: unknown) => {
       calls.errors.push({ pluginId, action, message: (error as Error).message });
     },

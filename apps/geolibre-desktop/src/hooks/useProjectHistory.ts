@@ -18,7 +18,8 @@ import {
 import { buildProjectSnapshot } from "../lib/build-project-snapshot";
 import { isEmbedded } from "./embedHost";
 import { isTauri } from "../lib/is-tauri";
-import { projectChanged } from "../lib/project-broadcast-changed";
+import { projectAutosaveChanged } from "../lib/project-autosave-changed";
+import { useDesktopSettingsStore } from "./useDesktopSettings";
 import {
   addProjectSnapshot,
   deleteProjectSnapshot,
@@ -147,7 +148,11 @@ export function useProjectHistory(mapControllerRef: RefObject<MapEngine | null>)
       if (!state.isDirty && previous.isDirty) autosaveStatus.reset();
       if (
         !state.isDirty ||
-        (!projectChanged(state, previous) && state.mapView === previous.mapView)
+        !projectAutosaveChanged(
+          state,
+          previous,
+          useDesktopSettingsStore.getState().desktopSettings.projects.pluginStateAutosave,
+        )
       ) {
         return;
       }

@@ -3187,6 +3187,8 @@
       "projects": "Projects",
       "pluginPublishableState": "Let plugins mark their project settings as safe to share",
       "pluginPublishableStateHint": "A plugin can say its saved settings are not a credential, so saving a project does not ask to strip them and a share keeps them. Keys that look like credentials are still removed.",
+      "pluginStateAutosave": "Autosave changes made inside plugins",
+      "pluginStateAutosaveHint": "When a plugin reports that its own state changed (for example data added in its panel), mark the project unsaved and include the change in autosave.",
       "urlParamsNote": "URL layout parameters still apply when present in shared viewer links."
     },
     "appearance": {

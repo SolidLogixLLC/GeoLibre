@@ -208,6 +208,25 @@ export function LayoutSection() {
             </span>
           </span>
         </label>
+        <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
+          <input
+            className="h-4 w-4"
+            type="checkbox"
+            checked={draftDesktopSettings.projects.pluginStateAutosave}
+            onChange={(event) =>
+              updateDraftProjectSettings({
+                pluginStateAutosave: event.target.checked,
+              })
+            }
+          />
+          <FolderCog className="h-4 w-4 text-muted-foreground" />
+          <span>
+            <span className="block">{t("settings.layout.pluginStateAutosave")}</span>
+            <span className="block text-xs text-muted-foreground">
+              {t("settings.layout.pluginStateAutosaveHint")}
+            </span>
+          </span>
+        </label>
       </div>
       {showsAdvancedNotices(desktopSettings.uiProfile) ? (
         <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">

@@ -182,6 +182,8 @@ export interface AppApiHost extends Pick<
   projectPluginStateSnapshot: () => unknown;
   /** Writes the plugin state to the project when it differs from `previousJson`. */
   persistProjectPluginState: (previousJson: string) => void;
+  /** Backs `notifyProjectStateChanged`: refreshes the project's plugin state, coalesced. */
+  notifyProjectStateChanged: () => void;
   /** Records a contained plugin failure in the diagnostics panel. */
   reportPluginError: (pluginId: string, action: string, error: unknown) => void;
   /** Binds a temporal layer to the Time Slider and opens its dock. */
@@ -673,6 +675,9 @@ export function createAppAPI(
       host.persistProjectPluginState(before);
       return !manager.isActive(pluginId);
     },
+    // A plugin whose getProjectState() changed outside a toolbar toggle tells
+    // the host so the project is marked unsaved and autosave picks it up.
+    notifyProjectStateChanged: () => host.notifyProjectStateChanged(),
     queryOvertureFeatures: host.queryOvertureFeatures,
     ...createPluginLayerGroupActions(),
     ...createPluginLayerStyleActions(),

@@ -266,6 +266,8 @@ export interface GeoLibreAppAPI {
   // See "Activating and deactivating other plugins" below.
   activatePlugin?: (pluginId: string, state?: unknown) => Promise<boolean>;
   deactivatePlugin?: (pluginId: string) => boolean;
+  // Tell the host getProjectState() changed. See "Plugin project settings".
+  notifyProjectStateChanged?: () => void;
   getActiveBasemap: () => string;
   onBasemapChange: (callback: (styleUrl: string) => void) => () => void;
   fetchArrayBuffer?: (url: string) => Promise<ArrayBuffer>;
@@ -2099,6 +2101,28 @@ upstream builds, and toggling it applies immediately to already-loaded
 plugins. The Python package mirrors the host's static allowlist
 (`PUBLISHABLE_PLUGIN_SETTINGS`) only; it does not see runtime declarations, so
 `geolibre.project` redaction still drops a plugin-declared blob.
+
+A plugin whose `getProjectState()` result changes outside a toolbar toggle (the
+user adds data inside the plugin's own panel, for example) should call
+`app.notifyProjectStateChanged?.()`. The host then re-reads the plugin state into
+the project, marks the project unsaved, and the autosave / project-history
+snapshot picks the change up. It also keeps a map rebuild (renderer swap) from
+re-applying the older plugin snapshot over the new data. Calls are coalesced
+(about 250 ms), so calling it on every change is fine. The host ignores a call
+while a project is being restored (so a plugin's own `applyProjectState` never
+dirties the project it just loaded), when a different project was opened while the
+call was waiting, when the serialized state is unchanged,
+and when the desktop setting "Autosave changes made inside plugins"
+(`projects.pluginStateAutosave`) is off. The setting defaults to on and is
+inert unless a plugin calls the method. Plugin settings stay local: this does
+not trigger a collaboration broadcast.
+
+Call it only for changes that originate from the user (or from the plugin's
+own live data after activation). Never call it from `activate`,
+`applyProjectState`, or from asynchronous work those start (a fetch or timer
+that completes after the project loads), and never before `applyProjectState`
+or `activate` has run: the plugin would be announcing state it has not loaded
+yet, and the host would store that over the project's saved state.
 
 Manifest paths must be relative zip paths with forward slashes, no leading slash, no backslashes, and no `..` segments. External plugins cannot set `activeByDefault` on the exported plugin object, and the manifest-level flag is honored only for bundled drop-ins (see "Bundled plugins" above); saved project state can still reactivate an external plugin by ID after the zip is loaded.
 

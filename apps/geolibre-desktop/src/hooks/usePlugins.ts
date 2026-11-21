@@ -1,5 +1,6 @@
 import { useAppStore } from "@geolibre/core";
 import { buildProjectEgressSnapshot } from "../lib/build-project-snapshot";
+import { createProjectStateNotifier } from "../lib/plugin-project-state-notifier";
 import { reserveBuiltInPluginIds } from "../lib/plugin-registry";
 import { ensurePluginBlocklistLoaded, hasPluginBlocklistEntries } from "../lib/plugin-blocklist";
 import {
@@ -1275,6 +1276,7 @@ const appApiHost: AppApiHost = {
   plugins: manager,
   projectPluginStateSnapshot,
   persistProjectPluginState,
+  notifyProjectStateChanged: () => projectStateNotifier.notify(),
   reportPluginError,
   bindTemporalLayer,
   buildProjectSnapshot: buildProjectEgressSnapshot,
@@ -1425,6 +1427,17 @@ export async function activatePluginForAssistant(
   persistProjectPluginState(before);
   return true;
 }
+
+// Backs `app.notifyProjectStateChanged()`: one shared notifier so a burst of
+// calls from any plugin becomes a single refresh of the project's plugin state.
+const projectStateNotifier = createProjectStateNotifier({
+  isEnabled: () => useDesktopSettingsStore.getState().desktopSettings.projects.pluginStateAutosave,
+  isRestoring: () => manager.isRestoring(),
+  generation: () => useAppStore.getState().projectGeneration,
+  snapshot: projectPluginStateSnapshot,
+  stored: () => useAppStore.getState().projectPlugins,
+  commit: (next) => useAppStore.getState().setProjectPlugins(next),
+});
 
 function persistProjectPluginState(previousJson: string): void {
   const nextState = projectPluginStateSnapshot();
