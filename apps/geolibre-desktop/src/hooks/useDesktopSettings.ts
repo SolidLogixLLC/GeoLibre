@@ -251,6 +251,11 @@ export interface DesktopLayoutSettings {
    * placemarks) scannable, like the Places tree in Google Earth (#3045).
    */
   compactLayerList: boolean;
+  /**
+   * Render a layer group's header as a section divider (no card border,
+   * radius or background tint) instead of a card. Layer rows are unaffected.
+   */
+  layerGroupSections: boolean;
   layerPanelVisible: boolean;
   showProjectInfo: boolean;
   stylePanelVisible: boolean;
@@ -323,6 +328,7 @@ export const DEFAULT_DESKTOP_LAYOUT_SETTINGS: DesktopLayoutSettings = {
   bottomPanelsUnderMap: true,
   commentsPanelVisible: true,
   compactLayerList: false,
+  layerGroupSections: false,
   layerPanelVisible: true,
   showProjectInfo: true,
   stylePanelVisible: true,
@@ -672,6 +678,10 @@ function normalizeDesktopLayoutSettings(layout: unknown): DesktopLayoutSettings 
       typeof candidate.compactLayerList === "boolean"
         ? candidate.compactLayerList
         : DEFAULT_DESKTOP_LAYOUT_SETTINGS.compactLayerList,
+    layerGroupSections:
+      typeof candidate.layerGroupSections === "boolean"
+        ? candidate.layerGroupSections
+        : DEFAULT_DESKTOP_LAYOUT_SETTINGS.layerGroupSections,
     layerPanelVisible:
       typeof candidate.layerPanelVisible === "boolean"
         ? candidate.layerPanelVisible

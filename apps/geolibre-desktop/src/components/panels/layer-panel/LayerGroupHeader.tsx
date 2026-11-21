@@ -1,6 +1,7 @@
 import { type MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@geolibre/core";
+import { useDesktopSettingsStore } from "../../../hooks/useDesktopSettings";
 import type { LayerGroup } from "@geolibre/core";
 import {
   Button,
@@ -86,6 +87,23 @@ export function LayerGroupHeader({
     cancelGroupRename,
   } = rename;
   const [compactLayerList] = useCompactLayerList();
+  // "Layer groups as section headers": a section divider (no card border,
+  // radius or background tint, plus a bottom rule) instead of a card.
+  const sectionStyle = useDesktopSettingsStore((s) => s.desktopSettings.layout.layerGroupSections);
+  const headerClassName = sectionStyle
+    ? `w-full min-w-0 max-w-full border-b px-1 pb-1 transition-colors ${
+        compactLayerList ? "pt-2" : "pt-3"
+      } ${isDropTarget ? "border-primary bg-primary/10" : "border-border"}`
+    : `w-full min-w-0 max-w-full rounded-md border transition-colors ${
+        compactLayerList ? "px-2 py-0.5" : "p-2"
+      } ${
+        isDropTarget
+          ? "border-primary bg-primary/10"
+          : "border-border bg-muted/30 hover:border-muted-foreground/40"
+      }`;
+  const groupNameClassName = sectionStyle
+    ? "min-w-0 flex-1 truncate text-xs font-semibold tracking-[0.04em] text-muted-foreground"
+    : "min-w-0 flex-1 truncate text-sm font-semibold";
   return (
     <div
       data-group-header=""
@@ -96,13 +114,8 @@ export function LayerGroupHeader({
       // the collapse toggle, which is where a listitem may carry it.
       role="listitem"
       aria-level={depth + 1}
-      className={`w-full min-w-0 max-w-full rounded-md border transition-colors ${
-        compactLayerList ? "px-2 py-0.5" : "p-2"
-      } ${
-        isDropTarget
-          ? "border-primary bg-primary/10"
-          : "border-border bg-muted/30 hover:border-muted-foreground/40"
-      }`}
+      data-group-style={sectionStyle ? "section" : "card"}
+      className={headerClassName}
       style={{
         marginInlineStart: `${depth}rem`,
         width: `calc(100% - ${depth}rem)`,
@@ -171,7 +184,7 @@ export function LayerGroupHeader({
           />
         ) : (
           <span
-            className="min-w-0 flex-1 truncate text-sm font-semibold"
+            className={groupNameClassName}
             title={`${group.name}\n${t("layers.doubleClickToRename")}`}
             onDoubleClick={(e: ReactMouseEvent) => {
               e.stopPropagation();

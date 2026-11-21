@@ -3182,6 +3182,8 @@
       "showBrowserPanel": "Show Browser panel",
       "showCommentsPanel": "Show Comments panel",
       "compactLayerList": "Compact Layers panel (show layer controls only on the selected layer)",
+      "layerGroupSections": "Layer groups as section headers",
+      "layerGroupSectionsHint": "Show a layer group as a plain section heading with a divider instead of a bordered card.",
       "bottomPanelsUnderMap": "Keep bottom panels under the map",
       "showAttributePanel": "Show Attribute panel",
       "projects": "Projects",

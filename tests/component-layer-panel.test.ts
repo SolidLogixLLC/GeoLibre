@@ -590,3 +590,74 @@ describe("LayerPanel", () => {
     assert.equal(screen.queryAllByRole("dialog").length, 0);
   });
 });
+
+/** Turn the "Layer groups as section headers" setting on or off for a test. */
+function setLayerGroupSections(value: boolean): void {
+  useDesktopSettingsStore.setState((state) => ({
+    desktopSettings: {
+      ...state.desktopSettings,
+      layout: { ...state.desktopSettings.layout, layerGroupSections: value },
+    },
+  }));
+}
+
+describe("LayerPanel layer group section headers", () => {
+  it("renders a group header as a section, not a card, when the setting is on", () => {
+    setLayerGroupSections(true);
+    act(() => {
+      useAppStore.getState().addLayerGroup("Faults", []);
+    });
+    renderLayerPanel();
+
+    const header = screen.getByTestId("layer-group-header");
+    assert.equal(header.getAttribute("data-group-style"), "section");
+    assert.equal(header.className.includes("rounded-md"), false);
+    // No all-sides `border` utility (only the section's `border-b`).
+    assert.equal(/(^|\s)border(\s|$)/.test(header.className), false);
+    assert.ok(header.className.includes("border-b"));
+  });
+
+  it("keeps the card header when the setting is off", () => {
+    setLayerGroupSections(false);
+    act(() => {
+      useAppStore.getState().addLayerGroup("Faults", []);
+    });
+    renderLayerPanel();
+
+    const header = screen.getByTestId("layer-group-header");
+    assert.equal(header.getAttribute("data-group-style"), "card");
+    assert.ok(header.className.includes("rounded-md"));
+    assert.ok(header.className.includes("bg-muted/30"));
+  });
+
+  it("still highlights the drop target while dragging over a section header", () => {
+    setLayerGroupSections(true);
+    act(() => {
+      useAppStore.getState().addLayerGroup("Faults", []);
+    });
+    useAppStore.setState({
+      layers: [geojsonLayer({ id: "parks", name: "Parks" })],
+    });
+    renderLayerPanel();
+
+    const grip = screen.getByRole("button", { name: "Drag Parks to reorder" });
+    const header = screen.getByTestId("layer-group-header");
+    // The drag is pointer-captured and finds its target with elementFromPoint.
+    const document = header.ownerDocument;
+    const original = document.elementFromPoint;
+    document.elementFromPoint = () => header;
+    try {
+      (grip as HTMLElement).setPointerCapture = () => {};
+      act(() => {
+        fireEvent.pointerDown(grip, { pointerId: 1, isPrimary: true, button: 0, clientX: 0, clientY: 0 });
+        fireEvent.pointerMove(grip, { pointerId: 1, isPrimary: true, clientX: 20, clientY: 20 });
+      });
+    } finally {
+      document.elementFromPoint = original;
+    }
+
+    assert.equal(header.getAttribute("data-group-style"), "section");
+    assert.ok(header.className.includes("border-primary"));
+    assert.ok(header.className.includes("bg-primary/10"));
+  });
+});

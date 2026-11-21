@@ -8,6 +8,7 @@ import {
   PanelLeft,
   PanelRight,
   RotateCcw,
+  SeparatorHorizontal,
   Type,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -169,6 +170,25 @@ export function LayoutSection() {
           />
           <ListCollapse className="h-4 w-4 text-muted-foreground" />
           <span>{t("settings.layout.compactLayerList")}</span>
+        </label>
+        <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
+          <input
+            className="h-4 w-4"
+            type="checkbox"
+            checked={draftDesktopSettings.layout.layerGroupSections}
+            onChange={(event) =>
+              updateDraftLayoutSettings({
+                layerGroupSections: event.target.checked,
+              })
+            }
+          />
+          <SeparatorHorizontal className="h-4 w-4 text-muted-foreground" />
+          <span>
+            <span className="block">{t("settings.layout.layerGroupSections")}</span>
+            <span className="block text-xs text-muted-foreground">
+              {t("settings.layout.layerGroupSectionsHint")}
+            </span>
+          </span>
         </label>
         <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
           <input
