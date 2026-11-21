@@ -295,6 +295,10 @@ describe("autosave predicate", () => {
 });
 
 describe("pluginStateAutosave setting", () => {
+  it("is on by default in this distribution", () => {
+    assert.equal(DEFAULT_PROJECT_SETTINGS.pluginStateAutosave, true);
+  });
+
   it("falls back to the default and keeps an explicit boolean either way", () => {
     assert.equal(
       normalizeDesktopSettings({}).projects.pluginStateAutosave,

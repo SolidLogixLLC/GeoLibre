@@ -352,7 +352,8 @@ export const DEFAULT_UPDATE_SETTINGS: UpdateSettings = {
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
   // Default on in this distribution; upstream defaults it to false.
   pluginPublishableState: true,
-  pluginStateAutosave: false,
+  // Default on in this distribution; upstream defaults it to false.
+  pluginStateAutosave: true,
 };
 
 export const DEFAULT_STARTUP_SETTINGS: StartupSettings = {
