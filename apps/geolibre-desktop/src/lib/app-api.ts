@@ -36,6 +36,7 @@ import type {
   GeoLibreEditSessionChange,
   GeoLibreExternalNativeLayerRegistration,
   GeoLibreFileDialogOptions,
+  GeoLibreGeoJsonLayerOptions,
   GeoLibrePointCloudLayerOptions,
   GeoLibreRasterWindowOptions,
   GeoLibreTileLayerOptions,
@@ -295,8 +296,15 @@ export function createAppAPI(
         state.setBasemapStyleUrl(url);
       }
     },
-    addGeoJsonLayer: (name: string, data: GeoJSON.FeatureCollection, sourcePath?: string) => {
-      const id = store.addGeoJsonLayer(name, data, sourcePath);
+    addGeoJsonLayer: (
+      name: string,
+      data: GeoJSON.FeatureCollection,
+      sourcePath?: string,
+      options?: GeoLibreGeoJsonLayerOptions,
+    ) => {
+      const id = store.addGeoJsonLayer(name, data, sourcePath, null, {
+        ...(options?.attribution ? { attribution: options.attribution } : {}),
+      });
       return id;
     },
     updateGeoJsonLayer: (layerId: string, data: GeoJSON.FeatureCollection) => {

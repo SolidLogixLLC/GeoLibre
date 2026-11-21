@@ -448,6 +448,13 @@ export interface LayerStyle {
   strokeColor: string;
   strokeWidth: number;
   /**
+   * Optional MapLibre expression (serialized as JSON) for line and polygon
+   * outline width. When non-empty it overrides {@link strokeWidth} and
+   * {@link strokeWidthUnit}. Kept as text, like the other data-defined style
+   * properties, so project JSON stays portable.
+   */
+  strokeWidthExpression: string;
+  /**
    * Unit the {@link strokeWidth} value is expressed in.
    *
    * - `"pixels"` (default): a constant screen-space width that never changes
@@ -704,6 +711,7 @@ export const DEFAULT_LAYER_STYLE: LayerStyle = {
   fillColor: "#3b82f6",
   strokeColor: "#1e40af",
   strokeWidth: 2,
+  strokeWidthExpression: "",
   strokeWidthUnit: "pixels",
   strokeOpacity: 1,
   strokeDash: [],

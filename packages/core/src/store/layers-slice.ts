@@ -188,7 +188,12 @@ export interface LayersSlice {
     geojson: FeatureCollection,
     sourcePath?: string,
     beforeLayerId?: string | null,
-    extra?: { geoarrow?: GeoArrowBatch; metadata?: Record<string, unknown> },
+    extra?: {
+      geoarrow?: GeoArrowBatch;
+      metadata?: Record<string, unknown>;
+      /** Source attribution shown in MapLibre's attribution control. */
+      attribution?: string;
+    },
   ) => string;
   /**
    * Add a georeferenced image overlay (a MapLibre `image` source rendered as a
@@ -545,11 +550,22 @@ export const createLayersSlice: SliceCreator<LayersSlice> = (set, get) => ({
         console.warn("[GeoLibre] GeoArrow batch conversion failed; falling back to GeoJSON", err);
       }
     }
+    const foreignAttribution = (geojson as FeatureCollection & { attribution?: unknown })
+      .attribution;
+    const sourceAttribution =
+      typeof extra?.attribution === "string" && extra.attribution.trim()
+        ? extra.attribution
+        : foreignAttribution;
     const layer: GeoLibreLayer = {
       id,
       name,
       type: "geojson",
-      source: { type: "geojson" },
+      source: {
+        type: "geojson",
+        ...(typeof sourceAttribution === "string" && sourceAttribution.trim()
+          ? { attribution: sourceAttribution }
+          : {}),
+      },
       visible: true,
       opacity: 1,
       // Its own palette color and geometry-appropriate sizing (#1519), so a

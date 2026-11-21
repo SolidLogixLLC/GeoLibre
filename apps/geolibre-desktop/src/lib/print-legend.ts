@@ -636,13 +636,35 @@ export function diagramSwatches(
 }
 
 /**
+ * The drawable rules of a rule-based renderer with identical categories
+ * coalesced. The same category (same label and color) can be split across
+ * non-overlapping zoom ranges; it is one cartographic class, so the legend
+ * shows it once. Shared with the on-map auto legend so both list the same rows
+ * (and the print legend's `panelRowIndex` tags keep matching the panel).
+ *
+ * @param style - The layer style.
+ * @returns The rules (first of each category kept) and the else rule.
+ */
+export function coalescedVectorRules(style: LayerStyle): ReturnType<typeof effectiveVectorRules> {
+  const { rules, elseRule } = effectiveVectorRules(style);
+  const seen = new Set<string>();
+  const unique = rules.filter((rule) => {
+    const key = JSON.stringify([rule.label || JSON.stringify(rule.filter), rule.color]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { rules: unique, elseRule };
+}
+
+/**
  * Rule-based renderer swatches: one per drawable rule (disabled rules and
  * group rules are resolved away by {@link effectiveVectorRules}, mirroring the
  * live map), plus the catch-all else rule when it has a valid color. Labels
  * fall back to the rule's filter text so unlabeled rules stay identifiable.
  */
 function ruleSwatches(layer: GeoLibreLayer): (LegendSwatch & { label: string })[] {
-  const { rules, elseRule } = effectiveVectorRules(layer.style);
+  const { rules, elseRule } = coalescedVectorRules(layer.style);
   const indices = sampleEvenly(
     rules.map((_, index) => index),
     Math.min(rules.length, MAX_RAMP_SWATCHES),

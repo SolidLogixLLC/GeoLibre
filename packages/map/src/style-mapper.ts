@@ -7,6 +7,7 @@ import {
   heatmapRampColors,
   lineWidthValue,
   mapZoomStepOutputs,
+  parseJsonExpression,
   simpleStyleNumberValue,
   strokeBlurValue,
   strokeDashValue,
@@ -177,9 +178,13 @@ export function fillExtrusionPaint(style: LayerStyle, opacity: number) {
 export function linePaint(style: LayerStyle, opacity: number) {
   const dash = strokeDashValue(style);
   const blur = strokeBlurValue(style);
+  // A zoom-driven width authored as a MapLibre expression overrides the plain
+  // width (fork addition, used by fault cartography).
+  const widthExpression = parseJsonExpression(styleValue(style, "strokeWidthExpression"));
   return {
     "line-color": vectorLineColorValue(style) as PropertyValueSpecification<string>,
-    "line-width": lineWidthValue(style) as unknown as PropertyValueSpecification<number>,
+    "line-width": (widthExpression ??
+      lineWidthValue(style)) as unknown as PropertyValueSpecification<number>,
     "line-opacity": scaleByOpacity(strokeOpacityPaintValue(style), opacity),
     ...(dash ? { "line-dasharray": dash as unknown as PropertyValueSpecification<number[]> } : {}),
     ...(blur > 0 ? { "line-blur": blur } : {}),

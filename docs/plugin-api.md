@@ -138,7 +138,8 @@ export interface GeoLibreAppAPI {
   addGeoJsonLayer: (
     name: string,
     data: FeatureCollection,
-    sourcePath?: string
+    sourcePath?: string,
+    options?: { attribution?: string }
   ) => string;
   // Replace a GeoJSON layer's features in place, or remove a layer.
   // See "Updating and removing layers".
@@ -980,6 +981,8 @@ if (result && !result.ok)
 `setLayerStyle(layerId, patch)` is the counterpart for a plugin that already holds style values rather than style text: it merges a `Partial<LayerStyle>` into the layer's style through the store, like a change made in the Style panel. Call it with optional chaining (a fork addition).
 
 ## Raster and tile layers
+
+`addGeoJsonLayer(name, data, sourcePath?, { attribution })` credits the data in MapLibre's attribution control, for example `{ attribution: "USGS Quaternary Fault Database" }`.
 
 `addGeoJsonLayer` registers vector data as a native layer. For raster and tile data there are three matching helpers — `addTileLayer` (XYZ), `addWmtsLayer` (WMTS), and `addWmsLayer` (WMS). Each returns the new layer's id, and the layer appears in the Layers panel with full opacity, reorder, and styling support and persists with the project, so a plugin no longer has to call `getMap().addSource()/addLayer()` directly (which leaves the layer invisible to GeoLibre's layer store).
 

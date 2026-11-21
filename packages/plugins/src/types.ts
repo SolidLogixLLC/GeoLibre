@@ -99,6 +99,12 @@ export type GeoLibreBuiltInMapControl =
   | "maptoolkit-logo"
   | "layer-control";
 
+/** Optional source metadata for a GeoJSON layer added by a plugin. */
+export interface GeoLibreGeoJsonLayerOptions {
+  /** Attribution shown in MapLibre's native attribution control. */
+  attribution?: string;
+}
+
 export interface GeoLibreExternalNativeLayerRegistration {
   id: string;
   name: string;
@@ -726,7 +732,12 @@ export interface GeoLibreAppAPI {
   registerAssistantGuidance?: (text: string, ownerPluginId?: string) => () => void;
 
   setBasemap: (styleUrl: string) => void;
-  addGeoJsonLayer: (name: string, data: FeatureCollection, sourcePath?: string) => string;
+  addGeoJsonLayer: (
+    name: string,
+    data: FeatureCollection,
+    sourcePath?: string,
+    options?: GeoLibreGeoJsonLayerOptions,
+  ) => string;
   /**
    * Replace a GeoJSON layer's features, keeping its id, name, place in the
    * layer order, group, style and visibility, the way saving a GeoEditor

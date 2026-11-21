@@ -14,7 +14,6 @@
  * injects locale and the colormap resolver.
  */
 import {
-  effectiveVectorRules,
   heatmapRampColors,
   isHexColor,
   proportionalSizeRange,
@@ -30,6 +29,7 @@ import {
 } from "@geolibre/core";
 import { isRasterLike, layerSwatchShape, type LayerSwatchShape } from "./layer-swatch";
 import {
+  coalescedVectorRules,
   diagramSwatches,
   geometryGeneratorLegendParts,
   isVectorStyledLayer,
@@ -218,7 +218,7 @@ function stopRows(
 
 /** Rule-based renderer rows (mirrors the live map's effective rules). */
 function ruleRows(layer: GeoLibreLayer, shape: LayerSwatchShape): RawRow[] {
-  const { rules, elseRule } = effectiveVectorRules(layer.style);
+  const { rules, elseRule } = coalescedVectorRules(layer.style);
   const rows: RawRow[] = rules.slice(0, MAX_LEGEND_ROWS).map((rule) => ({
     label: rule.label || JSON.stringify(rule.filter),
     color: rule.color,
