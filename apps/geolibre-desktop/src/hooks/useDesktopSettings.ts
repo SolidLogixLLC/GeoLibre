@@ -329,7 +329,8 @@ export const DEFAULT_DESKTOP_LAYOUT_SETTINGS: DesktopLayoutSettings = {
   commentsPanelVisible: true,
   // Default on in this distribution; upstream defaults it to false.
   compactLayerList: true,
-  layerGroupSections: false,
+  // Default on in this distribution; upstream defaults it to false.
+  layerGroupSections: true,
   layerPanelVisible: true,
   showProjectInfo: true,
   stylePanelVisible: true,

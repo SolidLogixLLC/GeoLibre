@@ -19,14 +19,19 @@ const { useLayerRefresh } =
 
 const noop = () => {};
 
-// The compact Layers panel is on by default in this distribution (upstream's
-// default is off). These tests describe the full layer cards, so each one starts
-// from upstream's default; a test that wants the compact list turns it on.
+// The compact Layers panel and section-style group headers are on by default in
+// this distribution (upstream's defaults are off). These tests describe the full
+// layer cards and card headers, so each one starts from upstream's defaults; a
+// test that wants the other mode turns it on.
 beforeEach(() => {
   useDesktopSettingsStore.setState((state) => ({
     desktopSettings: {
       ...state.desktopSettings,
-      layout: { ...state.desktopSettings.layout, compactLayerList: false },
+      layout: {
+        ...state.desktopSettings.layout,
+        compactLayerList: false,
+        layerGroupSections: false,
+      },
     },
   }));
 });

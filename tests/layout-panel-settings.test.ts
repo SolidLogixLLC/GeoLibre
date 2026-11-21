@@ -84,6 +84,10 @@ describe("bottom panels under the map setting", () => {
 // "Layer groups as section headers": the normalizer must fall back to whatever
 // the current default is when a stored settings object predates the key.
 describe("layer group section headers setting", () => {
+  it("is on by default in this distribution", () => {
+    assert.equal(DEFAULT_DESKTOP_LAYOUT_SETTINGS.layerGroupSections, true);
+  });
+
   it("normalizes a stored settings object without the key to the current default", () => {
     const layout = normalizeDesktopSettings({
       layout: { layerPanelVisible: false },
